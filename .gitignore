@@ -1,0 +1,37 @@
+# Workspace
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+out/
+build/
+coverage/
+logs/
+**/logs/
+data/
+**/data/
+*.log
+.DS_Store
+*.pem
+.env
+.env.*
+!.env.example
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Local AI / runtime
+.gestao-financeira-ai/
+**/runtime-token.txt
+
+# Launcher / package artifacts
+gestao-financeira/dist/
+Transcript.txt
+
+# OS / IDE
+Thumbs.db
+.idea/
+.vscode/
+*.swp

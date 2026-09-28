@@ -1,0 +1,26 @@
+{
+  "appName": "Gestão Financeira",
+  "version": "1.0.0",
+  "host": "127.0.0.1",
+  "appPort": 43127,
+  "aiPort": 43128,
+  "splashPort": 43129,
+  "openBrowser": true,
+  "browserAppMode": true,
+  "healthTimeoutMs": 90000,
+  "healthPollMs": 500,
+  "paths": {
+    "appServer": "app/server.js",
+    "aiRuntime": "runtime/ai-runtime/index.js",
+    "logs": "logs",
+    "data": "data"
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "HOSTNAME": "127.0.0.1",
+    "PORT": "43127",
+    "GF_AI_PORT": "43128",
+    "GF_AI_HOST": "127.0.0.1",
+    "GF_AI_ORIGINS": "http://127.0.0.1:43127,http://localhost:43127"
+  }
+}
