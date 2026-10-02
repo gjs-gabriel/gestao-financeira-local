@@ -27,6 +27,7 @@ import {
   Sparkles,
   Users,
   UserRound,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -87,18 +88,34 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
+const ADMIN_NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Administração",
+    items: [
+      { href: "/admin", label: "Usuários", icon: Shield },
+      { href: "/cofre", label: "Cofre admin", icon: Lock },
+    ],
+  },
+];
+
 export function AppNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { activeProfile, lock, switchUser } = useVault();
+  const { activeProfile, lock, switchUser, isAdminSession } = useVault();
 
   function isActive(href: string) {
-    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+    return href === "/"
+      ? pathname === "/"
+      : href === "/admin"
+        ? pathname === "/admin"
+        : pathname.startsWith(href);
   }
+
+  const groups = isAdminSession ? ADMIN_NAV_GROUPS : NAV_GROUPS;
 
   const links = (
     <nav className="flex flex-col gap-5" aria-label="Principal">
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <div key={group.title}>
           <p className="type-label mb-1.5 px-3">{group.title}</p>
           <ul className="flex flex-col gap-0.5">
@@ -139,11 +156,17 @@ export function AppNav() {
     <div className="mt-auto space-y-1 border-t border-border/50 pt-4">
       <div className="flex items-center gap-2.5 px-3 py-2">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <UserRound className="size-4" />
+          {isAdminSession ? (
+            <Shield className="size-4" />
+          ) : (
+            <UserRound className="size-4" />
+          )}
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{activeProfile.name}</p>
-          <p className="text-[11px] text-muted-foreground">Cofre protegido</p>
+          <p className="text-[11px] text-muted-foreground">
+            {isAdminSession ? "Admin · sem acesso a dados" : "Cofre protegido"}
+          </p>
         </div>
       </div>
       <Button

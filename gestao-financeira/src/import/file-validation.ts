@@ -78,9 +78,18 @@ export async function validateImportFile(
     return { ok: true, kind: "xls" };
   }
 
+  if (
+    name.endsWith(".ofx") ||
+    name.endsWith(".qfx") ||
+    file.type === "application/x-ofx" ||
+    file.type === "application/vnd.intu.qfx"
+  ) {
+    return { ok: true, kind: "ofx" };
+  }
+
   return {
     ok: false,
     error:
-      "Não conseguimos identificar este documento. Use PDF, CSV ou Excel.",
+      "Não conseguimos identificar este documento. Use PDF, CSV, Excel ou OFX.",
   };
 }

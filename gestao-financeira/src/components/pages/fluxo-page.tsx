@@ -5,11 +5,27 @@ import {
   annualCashflow,
   cashflowLastMonths,
   commitmentSplit,
+  expenseCompositionSeries,
+  futureInstallmentSeries,
   listYearsAround,
   monthlyCashflowDetailed,
   monthLabel,
+  savingsRateSeries,
 } from "@/domain";
 import { useVault } from "@/lib/vault-context";
+import {
+  CHART_AMBER,
+  CHART_BLUE,
+  CHART_ROSE,
+  CHART_TEAL,
+  brlTick,
+  chartTooltipStyle,
+  monthAxisTick,
+  percentDomain,
+  tooltipBrl,
+  tooltipPercent,
+  valueAxisTick,
+} from "@/components/charts/money-chart";
 import { EmptyState, Money, Metric, PageHeader, StatGroup } from "@/components/ui-helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -26,24 +42,12 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-
-function brlTick(v: number) {
-  return v.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  });
-}
-
-function tooltipBrl(v: unknown) {
-  if (typeof v !== "number") return String(v ?? "");
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
 
 export function FluxoPage() {
   const { snapshot } = useVault();
@@ -85,6 +89,10 @@ export function FluxoPage() {
     saidas: Math.round(p.totalExpenses * 100) / 100,
     saldo: Math.round(p.surplus * 100) / 100,
   }));
+
+  const composition = expenseCompositionSeries(last12);
+  const savings = savingsRateSeries(last12);
+  const installmentsAhead = futureInstallmentSeries(snapshot, year, month, 12);
 
   return (
     <div>
@@ -254,6 +262,112 @@ export function FluxoPage() {
                     fill="oklch(0.5 0.12 20)"
                     radius={[3, 3, 0, 0]}
                   />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="border-t border-border/40 pt-6">
+            <h2 className="text-base font-medium">De que tipo são as saídas?</h2>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">
+              Últimos 12 meses — recorrente, pontual (inclui cartão) e parcelas.
+            </p>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={composition} margin={{ left: 4, right: 4 }}>
+                  <XAxis
+                    dataKey="label"
+                    tick={monthAxisTick}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={1}
+                  />
+                  <YAxis
+                    tickFormatter={brlTick}
+                    width={68}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={valueAxisTick}
+                  />
+                  <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                  <Legend />
+                  <Bar dataKey="recorrente" name="Recorrente" stackId="tipo" fill={CHART_AMBER} />
+                  <Bar dataKey="pontual" name="Pontual" stackId="tipo" fill={CHART_TEAL} />
+                  <Bar
+                    dataKey="parcelas"
+                    name="Parcelas"
+                    stackId="tipo"
+                    fill={CHART_BLUE}
+                    radius={[3, 3, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="border-t border-border/40 pt-6">
+            <h2 className="text-base font-medium">Quanto da entrada sobrou?</h2>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">
+              Saldo dividido pela entrada do mês. Meses sem entrada ficam sem ponto.
+            </p>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={savings} margin={{ left: 4, right: 4 }}>
+                  <XAxis
+                    dataKey="label"
+                    tick={monthAxisTick}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={1}
+                  />
+                  <YAxis
+                    tickFormatter={(value: number) => `${value}%`}
+                    width={48}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={valueAxisTick}
+                    domain={percentDomain}
+                  />
+                  <ReferenceLine y={0} stroke="oklch(0.7 0.02 170)" strokeDasharray="3 3" />
+                  <Tooltip formatter={tooltipPercent} contentStyle={chartTooltipStyle} />
+                  <Line
+                    type="monotone"
+                    dataKey="taxa"
+                    name="Sobra"
+                    stroke={CHART_TEAL}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="border-t border-border/40 pt-6">
+            <h2 className="text-base font-medium">Quando as parcelas aliviam?</h2>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">
+              Carga de parcelas nos 12 meses a partir de {monthLabel(year, month)}.
+            </p>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={installmentsAhead} margin={{ left: 4, right: 4 }}>
+                  <XAxis
+                    dataKey="label"
+                    tick={monthAxisTick}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={1}
+                  />
+                  <YAxis
+                    tickFormatter={brlTick}
+                    width={68}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={valueAxisTick}
+                  />
+                  <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                  <Bar dataKey="parcelas" name="Parcelas" fill={CHART_ROSE} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

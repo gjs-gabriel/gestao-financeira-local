@@ -21,7 +21,10 @@ import type { VaultSnapshot, Institution, Category } from "./types";
 import type { CreditCard } from "./ledger-types";
 import type { Budget, CategorizationRule, WealthSnapshot } from "./v15-types";
 
-/** Credenciais fixas do perfil de demonstração oficial. */
+/** Credenciais fixas do perfil de demonstração oficial.
+ * NÃO é credencial de produção — apenas demo/seed local.
+ * Não exibir em UI de produção; não tratar como segredo forte.
+ */
 export const MARINA_DEMO_PIN = "3247";
 export const MARINA_DEMO_PROFILE_ID = "prof_marina_demo";
 export const MARINA_DEMO_VAULT_ID = "vault_marina_demo";

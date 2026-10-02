@@ -33,19 +33,27 @@ export class HttpLocalAIClient implements LocalAIClient {
       /\/$/,
       "",
     );
-    this.token =
-      options?.token ??
-      (typeof window !== "undefined"
-        ? localStorage.getItem(LOCAL_AI_STORAGE_TOKEN_KEY)
-        : null);
+    // Token só em memória — nunca localStorage
+    this.token = options?.token ?? null;
     this.timeoutMs = options?.timeoutMs ?? 90_000;
+    // Migração: remover token legado inseguro se existir
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(LOCAL_AI_STORAGE_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   setToken(token: string | null): void {
     this.token = token;
     if (typeof window !== "undefined") {
-      if (token) localStorage.setItem(LOCAL_AI_STORAGE_TOKEN_KEY, token);
-      else localStorage.removeItem(LOCAL_AI_STORAGE_TOKEN_KEY);
+      try {
+        localStorage.removeItem(LOCAL_AI_STORAGE_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -78,10 +86,15 @@ export class HttpLocalAIClient implements LocalAIClient {
     }
   }
 
-  /** Obtém/gera token de pareamento (somente localhost). */
+  /** Emite sessão efêmera via POST /session (memória apenas). */
   async pair(): Promise<string> {
-    const res = await this.getJson<{ token: string }>("/pair", { auth: false });
-    if (!res.token) throw new Error("Pareamento sem token");
+    const res = await this.requestJson<{ token: string; expiresIn?: number }>(
+      "POST",
+      "/session",
+      {},
+      { auth: false, timeoutMs: 8_000 },
+    );
+    if (!res.token) throw new Error("Sessão sem token");
     this.setToken(res.token);
     return res.token;
   }

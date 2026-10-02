@@ -39,11 +39,24 @@ export class GestaoFinanceiraOrchestrator {
     process.on("SIGTERM", () => void this.shutdown("SIGTERM"));
     process.on("exit", () => this.killChildrenSync());
 
-    this.splash = await createSplashServer(
-      this.config.host,
-      this.config.splashPort,
-      () => this.splashState,
-    );
+    try {
+      this.splash = await createSplashServer(
+        this.config.host,
+        this.config.splashPort,
+        () => this.splashState,
+      );
+    } catch (e) {
+      if (e && e.code === "EADDRINUSE") {
+        this.log("already_running", { splash: this.config.splashPort });
+        await flushLog(this.logStream);
+        openInBrowser(
+          `http://${this.config.host}:${this.config.appPort}/`,
+          this.config.browserAppMode,
+        );
+        return;
+      }
+      throw e;
+    }
 
     this.updateSplash({
       phase: "starting",
@@ -72,12 +85,14 @@ export class GestaoFinanceiraOrchestrator {
       });
 
       this.updateSplash({ message: "Iniciando assistente local…" });
-      await this.startAiRuntime();
-      const aiOk = await this.waitForHttp(
-        `http://${this.config.host}:${this.config.aiPort}/health`,
-        "Assistente local",
-        { optional: true },
-      );
+      const ollamaOk = await this.ensureOllama();
+      let aiOk = false;
+      if (ollamaOk) {
+        await this.startAiRuntime();
+        aiOk = await this.waitForAiHealth();
+      } else {
+        this.log("ollama_unavailable");
+      }
       this.updateSplash({
         message: aiOk
           ? "Assistente local pronto"
@@ -178,6 +193,77 @@ export class GestaoFinanceiraOrchestrator {
       },
       path.dirname(serverJs),
     );
+  }
+
+  async ensureOllama() {
+    const tagsUrl = "http://127.0.0.1:11434/api/tags";
+    if (await ping(tagsUrl)) {
+      this.log("ollama_already_up", { url: tagsUrl });
+      return true;
+    }
+    const started = await this.startOllamaDetached();
+    if (!started) {
+      this.log("ollama_binary_missing");
+      return false;
+    }
+    const deadline = Date.now() + this.config.healthTimeoutMs;
+    while (Date.now() < deadline) {
+      if (this.shuttingDown) return false;
+      if (await ping(tagsUrl)) {
+        this.log("ollama_ready", { url: tagsUrl });
+        return true;
+      }
+      await sleep(this.config.healthPollMs);
+    }
+    this.log("ollama_timeout", { url: tagsUrl });
+    return false;
+  }
+
+  /**
+   * Sobe o app do Ollama (ou `ollama serve`) sem anexá-lo aos filhos.
+   * Encerrar o launcher não mata o serviço do sistema.
+   */
+  async startOllamaDetached() {
+    for (const target of ollamaLaunchTargets()) {
+      if (path.isAbsolute(target.command) && !fs.existsSync(target.command)) {
+        continue;
+      }
+      const ok = await spawnDetached(target.command, target.args);
+      if (!ok) continue;
+      this.log("ollama_spawn", {
+        command: target.command,
+        args: target.args.join(" "),
+      });
+      return true;
+    }
+    return false;
+  }
+
+  async waitForAiHealth() {
+    const url = `http://${this.config.host}:${this.config.aiPort}/health`;
+    const deadline = Date.now() + this.config.healthTimeoutMs;
+    while (Date.now() < deadline) {
+      if (this.shuttingDown) return false;
+      const body = await getJson(url);
+      if (body) {
+        const ready = body.runtime === "ready" && body.modelReady === true;
+        if (ready) {
+          this.log("health_ok", {
+            label: "Assistente local",
+            url,
+            model: body.model ?? null,
+          });
+          return true;
+        }
+        if (body.runtime === "ready" && body.modelReady === false) {
+          this.log("health_ai_no_model", { url });
+          return false;
+        }
+      }
+      await sleep(this.config.healthPollMs);
+    }
+    this.log("health_optional_timeout", { label: "Assistente local", url });
+    return false;
   }
 
   async startAiRuntime() {
@@ -398,6 +484,68 @@ function openInBrowser(url, appMode) {
   spawn(opener, [url], { detached: true, stdio: "ignore" }).unref();
 }
 
+function ollamaLaunchTargets() {
+  const localApp = process.env.LOCALAPPDATA || "";
+  const programFiles = process.env.PROGRAMFILES || "C:\\Program Files";
+  const roots = [
+    path.join(localApp, "Programs", "Ollama"),
+    path.join(programFiles, "Ollama"),
+  ];
+  const targets = [];
+  for (const root of roots) {
+    targets.push({ command: path.join(root, "ollama app.exe"), args: [] });
+  }
+  targets.push({ command: "ollama", args: ["serve"] });
+  for (const root of roots) {
+    targets.push({ command: path.join(root, "ollama.exe"), args: ["serve"] });
+  }
+  return targets;
+}
+
+function spawnDetached(command, args) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const proc = spawn(command, args, {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      if (ok) proc.unref();
+      resolve(ok);
+    };
+    proc.once("error", () => finish(false));
+    proc.once("spawn", () => finish(true));
+  });
+}
+
+function getJson(url) {
+  return new Promise((resolve) => {
+    const req = http.get(url, { timeout: 1500 }, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", () => {
+        if ((res.statusCode ?? 500) >= 500) {
+          resolve(null);
+          return;
+        }
+        try {
+          resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
 function ping(url) {
   return new Promise((resolve) => {
     const req = http.get(url, { timeout: 1500 }, (res) => {
@@ -414,4 +562,14 @@ function ping(url) {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function flushLog(stream) {
+  return new Promise((resolve) => {
+    if (!stream) {
+      resolve();
+      return;
+    }
+    stream.end(resolve);
+  });
 }

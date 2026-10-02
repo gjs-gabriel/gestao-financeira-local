@@ -132,7 +132,10 @@ export function CofrePage() {
     setMsg(null);
     clearError();
     try {
-      await updateProfileMeta({ name: profileName, avatar });
+      await updateProfileMeta({
+        name: profileName,
+        avatar,
+      });
       setMsg("Perfil atualizado.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Falha ao salvar perfil");
@@ -196,17 +199,36 @@ export function CofrePage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {activeProfile.kind === "demo"
               ? "Usuário de apresentação (dados fictícios)"
-              : "Usuário pessoal"}
+              : activeProfile.kind === "admin"
+                ? "Administrador — pode excluir cofres, sem acesso ao conteúdo financeiro alheio"
+                : "Usuário pessoal"}
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Nome</Label>
+              <Label>Nome de apresentação</Label>
               <Input
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Ex.: João Silva"
               />
+              <p className="text-xs text-muted-foreground">
+                Pode ser alterado a qualquer momento.
+              </p>
             </div>
             <div className="space-y-1.5">
+              <Label>Login</Label>
+              <Input
+                value={activeProfile.displayName ?? "—"}
+                readOnly
+                disabled
+                className="opacity-80"
+                aria-readonly="true"
+              />
+              <p className="text-xs text-muted-foreground">
+                Definido na criação e não pode ser alterado.
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Avatar</Label>
               <Select
                 value={avatar}
@@ -222,6 +244,7 @@ export function CofrePage() {
                   <SelectItem value="demo">Apresentação</SelectItem>
                   <SelectItem value="briefcase">Trabalho</SelectItem>
                   <SelectItem value="star">Destaque</SelectItem>
+                  <SelectItem value="shield">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -248,6 +271,9 @@ export function CofrePage() {
           <h2 className="font-heading text-lg font-medium">Status do cofre</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Usuário: <strong>{activeProfile.name}</strong>
+            {activeProfile.displayName
+              ? ` · @${activeProfile.displayName}`
+              : ""}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Última atualização:{" "}

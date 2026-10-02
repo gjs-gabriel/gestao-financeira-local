@@ -1,6 +1,11 @@
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type { NormalizedBankTx } from "@/domain";
+import {
+  IMPORT_MAX_CELLS,
+  IMPORT_MAX_ROWS,
+  IMPORT_MAX_STRING_CHARS,
+} from "@/security/limits";
 
 export type ColumnRole = "date" | "description" | "amount" | "debit" | "credit" | "ignore";
 
@@ -187,6 +192,9 @@ export async function parseBankFile(file: File): Promise<ParsedSheet> {
 
 async function parseCsv(file: File): Promise<ParsedSheet> {
   const text = await file.text();
+  if (text.length > IMPORT_MAX_STRING_CHARS * IMPORT_MAX_ROWS) {
+    throw new Error("CSV excede o limite de tamanho processável.");
+  }
   // Detect delimiter: count ; vs , in first non-empty line
   const firstLine =
     text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? "";
@@ -201,13 +209,24 @@ async function parseCsv(file: File): Promise<ParsedSheet> {
   if (parsed.errors.length && (!parsed.data || parsed.data.length === 0)) {
     throw new Error(parsed.errors[0]?.message ?? "CSV inválido");
   }
-  const data = (parsed.data as string[][]).filter((r) =>
+  let data = (parsed.data as string[][]).filter((r) =>
     r.some((c) => String(c ?? "").trim()),
   );
   if (data.length === 0) throw new Error("Arquivo vazio");
+  if (data.length - 1 > IMPORT_MAX_ROWS) {
+    throw new Error(`Planilha excede o limite de ${IMPORT_MAX_ROWS} linhas.`);
+  }
 
-  const headers = data[0]!.map((h) => String(h ?? "").trim());
-  const rows = data.slice(1).map(cellsToStrings);
+  const headers = data[0]!.map((h) =>
+    String(h ?? "").trim().slice(0, IMPORT_MAX_STRING_CHARS),
+  );
+  const rows = data.slice(1).map((r) =>
+    cellsToStrings(r).map((c) => c.slice(0, IMPORT_MAX_STRING_CHARS)),
+  );
+  const cells = rows.reduce((n, r) => n + r.length, headers.length);
+  if (cells > IMPORT_MAX_CELLS) {
+    throw new Error("Planilha excede o limite de células permitido.");
+  }
   return {
     headers,
     rows,
@@ -217,21 +236,51 @@ async function parseCsv(file: File): Promise<ParsedSheet> {
 
 async function parseXlsx(file: File): Promise<ParsedSheet> {
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array", cellDates: true });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) throw new Error("Planilha vazia");
-  const sheet = wb.Sheets[sheetName]!;
-  const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    defval: "",
-    raw: false,
+  const wb = new ExcelJS.Workbook();
+  // Entrada não confiável — sem fórmulas/HTML executáveis
+  await wb.xlsx.load(buf);
+  const sheet = wb.worksheets[0];
+  if (!sheet) throw new Error("Planilha vazia");
+
+  const data: string[][] = [];
+  let cellCount = 0;
+  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber > IMPORT_MAX_ROWS + 1) {
+      throw new Error(`Planilha excede o limite de ${IMPORT_MAX_ROWS} linhas.`);
+    }
+    const values = row.values as unknown[];
+    // exceljs: values[0] is unused (1-indexed)
+    const cells = values.slice(1).map((c) => {
+      cellCount += 1;
+      if (cellCount > IMPORT_MAX_CELLS) {
+        throw new Error("Planilha excede o limite de células permitido.");
+      }
+      if (c == null) return "";
+      if (c instanceof Date) {
+        const y = c.getFullYear();
+        const m = String(c.getMonth() + 1).padStart(2, "0");
+        const d = String(c.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      if (typeof c === "object" && c !== null && "text" in c) {
+        return String((c as { text: string }).text ?? "")
+          .trim()
+          .slice(0, IMPORT_MAX_STRING_CHARS);
+      }
+      if (typeof c === "object" && c !== null && "result" in c) {
+        // fórmula — usar só o resultado já calculado, nunca executar
+        return String((c as { result: unknown }).result ?? "")
+          .trim()
+          .slice(0, IMPORT_MAX_STRING_CHARS);
+      }
+      return String(c).trim().slice(0, IMPORT_MAX_STRING_CHARS);
+    });
+    if (cells.some((x) => x)) data.push(cells);
   });
-  const data = aoa.filter((r) =>
-    Array.isArray(r) && r.some((c) => String(c ?? "").trim()),
-  );
+
   if (data.length === 0) throw new Error("Planilha vazia");
-  const headers = cellsToStrings(data[0] as unknown[]);
-  const rows = data.slice(1).map((r) => cellsToStrings(r as unknown[]));
+  const headers = data[0]!;
+  const rows = data.slice(1);
   return {
     headers,
     rows,

@@ -4,11 +4,21 @@ import { useState } from "react";
 import {
   compareDebtPlans,
   createId,
+  debtAmortizationSeries,
   formatBrl,
   type Debt,
 } from "@/domain";
 import { removeEntity, upsertEntity } from "@/domain/snapshot";
 import { useVault } from "@/lib/vault-context";
+import {
+  CHART_AMBER,
+  CHART_TEAL,
+  brlTick,
+  chartTooltipStyle,
+  monthAxisTick,
+  tooltipBrl,
+  valueAxisTick,
+} from "@/components/charts/money-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +31,15 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState, PageHeader, parseMoneyInput } from "@/components/ui-helpers";
 import { ConfirmDeleteDialog, EntityRow } from "@/components/entity-row";
+import {
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 export function DividasPage() {
   const { snapshot, updateSnapshot } = useVault();
@@ -207,6 +226,56 @@ export function DividasPage() {
               {formatBrl(comparison.interestSaved)} em juros
             </li>
           </ul>
+          {comparison.base.schedule.length > 0 ||
+          comparison.withExtra.schedule.length > 0 ? (
+            <div className="mt-4">
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={debtAmortizationSeries(
+                      comparison.base.schedule,
+                      comparison.withExtra.schedule,
+                    )}
+                    margin={{ left: 4, right: 4 }}
+                  >
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={monthAxisTick}
+                    />
+                    <YAxis
+                      tickFormatter={brlTick}
+                      width={68}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={valueAxisTick}
+                    />
+                    <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="semExtra"
+                      name="Sem extra"
+                      stroke={CHART_AMBER}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="comExtra"
+                      name="Com extra"
+                      stroke={CHART_TEAL}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ) : null}
           <Button
             className="mt-3"
             variant="ghost"

@@ -2,11 +2,12 @@
 
 ## O que o usuário final vê
 
-1. Atalho **Gestão Financeira**
-2. Tela **Inicializando…** (Aplicativo / Assistente local / Segurança)
-3. O navegador abre o app em `127.0.0.1` automaticamente
+1. Duplo clique em **Instalar.exe** — instala Node.js (com npm), Ollama e o modelo `qwen2.5:1.5b`
+2. Duplo clique em **GestaoFinanceira.exe** (ou no atalho **Gestão Financeira**)
+3. Tela **Inicializando…** (Aplicativo / Assistente local / Segurança)
+4. O navegador abre o app em `127.0.0.1` e a IA já foi inicializada
 
-Sem terminal, sem `npm`, sem configurar portas.
+Sem terminal e sem digitar comandos.
 
 ## Desenvolvimento
 
@@ -33,9 +34,8 @@ Saída:
 
 ```
 dist/GestaoFinanceira/
-  GestaoFinanceira.vbs   ← clique duplo (sem console)
-  GestaoFinanceira.cmd
-  criar-atalho.ps1
+  Instalar.exe           ← duplo clique: Node.js (npm), Ollama e o modelo
+  GestaoFinanceira.exe   ← duplo clique: abre o app e inicializa a IA
   start.mjs
   app/                   ← Next.js standalone
   runtime/ai-runtime/    ← Local AI Runtime
@@ -44,27 +44,15 @@ dist/GestaoFinanceira/
   data/
 ```
 
-Na pasta do pacote:
+Na pasta do projeto, os mesmos executáveis ficam em `Instalar.exe` e `GestaoFinanceira.exe`.
 
-```powershell
-.\\criar-atalho.ps1
-```
+## Executáveis
 
-## Executável nativo (.exe)
-
-Rust/Tauri **ainda não está instalado** nesta máquina. A estrutura Tauri fica em `desktop/` para gerar `GestãoFinanceira.exe` quando o toolchain estiver disponível:
-
-```bash
-# Uma vez: https://rustup.rs + WebView2
-npm run desktop:init   # se necessário
-npm run desktop:build
-```
-
-Enquanto isso, `GestaoFinanceira.vbs` + Node LTS oferececem o fluxo completo do usuário.
+`Instalar.exe` e `GestaoFinanceira.exe` são gerados com o compilador do .NET Framework (sem Rust). O primeiro instala as ferramentas. O segundo sobe o aplicativo e a IA.
 
 ## Princípios
 
 - Bind somente em `127.0.0.1`
 - Logs sem dados financeiros
-- Assistente local opcional: se Ollama/runtime falhar, o app ainda abre
-- Encerrar o launcher encerra os processos filhos
+- Assistente local: o executável sobe o Ollama (se ainda não estiver no ar) e o AI runtime; se falhar, o app ainda abre
+- Encerrar o launcher encerra os processos filhos (Next e AI runtime). O serviço do Ollama permanece

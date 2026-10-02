@@ -184,7 +184,7 @@ export function createTransfer(input: {
   };
 }
 
-/** Garante arrays do ledger presentes (schema 4). */
+/** Garante arrays do ledger presentes (schema 5). */
 export function emptyLedgerFields(now: string): {
   accounts: Account[];
   creditCards: CreditCard[];
@@ -196,6 +196,10 @@ export function emptyLedgerFields(now: string): {
   budgets: import("./v15-types").Budget[];
   categorizationRules: import("./v15-types").CategorizationRule[];
   wealthHistory: import("./v15-types").WealthSnapshot[];
+  investmentPositionHistory: import("./import-entities").DatedInvestmentPosition[];
+  investmentAliases: import("./import-entities").InvestmentAlias[];
+  importedDocuments: import("./import-entities").ImportedDocumentMeta[];
+  statementSummaries: import("./import-entities").StatementSummary[];
 } {
   void now;
   return {
@@ -209,6 +213,10 @@ export function emptyLedgerFields(now: string): {
     budgets: [],
     categorizationRules: [],
     wealthHistory: [],
+    investmentPositionHistory: [],
+    investmentAliases: [],
+    importedDocuments: [],
+    statementSummaries: [],
   };
 }
 

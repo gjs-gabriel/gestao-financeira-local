@@ -48,8 +48,12 @@ export type TransactionStatus =
 export interface Transaction {
   id: string;
   kind: TransactionKind;
-  /** ISO YYYY-MM-DD */
+  /** ISO YYYY-MM-DD — data da operação (preferencial). */
   date: string;
+  /** Data de lançamento / posting quando distinta. */
+  postingDate?: string;
+  /** Data de liquidação quando distinta. */
+  settlementDate?: string;
   /** Sempre ≥ 0; a direção vem do kind / from-to. */
   amount: number;
   description: string;
@@ -66,10 +70,13 @@ export interface Transaction {
   installmentPlanId?: string;
   /** Liga as duas pernas de uma transferência (mesmo id nos dois lançamentos ou um único registro). */
   transferGroupId?: string;
+  /** Investimento relacionado (aporte/resgate). */
+  investmentId?: string;
   institutionId?: string;
   institutionOther?: string;
   /** Origem: manual | import | system */
   source?: "manual" | "import" | "system";
+  /** FITID / hash de deduplicação (OFX, etc.). */
   importHash?: string;
   createdAt: string;
   updatedAt: string;

@@ -19,12 +19,27 @@ describe("profiles helpers", () => {
   });
 
   it("buildUserProfile cria vaultId distinto por perfil", () => {
-    const a = buildUserProfile({ name: "A", kind: "demo" });
-    const b = buildUserProfile({ name: "B", kind: "personal" });
+    const a = buildUserProfile({
+      name: "Ana Demo",
+      login: "user.a",
+      kind: "demo",
+    });
+    const b = buildUserProfile({
+      name: "Bruno",
+      login: "user.b",
+      kind: "personal",
+    });
     assert.notEqual(a.id, b.id);
     assert.notEqual(a.vaultId, b.vaultId);
     assert.equal(a.kind, "demo");
     assert.equal(b.kind, "personal");
+    assert.equal(b.displayName, "user.b");
+  });
+
+  it("buildUserProfile rejeita login com espaço", () => {
+    assert.throws(() =>
+      buildUserProfile({ name: "João", login: "joao silva", kind: "personal" }),
+    );
   });
 
   it("planLegacyMigration preserva vaultId no profile", () => {

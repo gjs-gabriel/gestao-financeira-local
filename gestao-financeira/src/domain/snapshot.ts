@@ -267,7 +267,7 @@ function mergeInstitutions(
   return [...byId.values()];
 }
 
-/** Valida e migra snapshot (schema 1–4 → atual). */
+/** Valida e migra snapshot (schema 1–5 → atual). */
 export function parseSnapshot(raw: unknown): VaultSnapshot {
   if (!raw || typeof raw !== "object") {
     throw new Error("Snapshot inválido");
@@ -279,7 +279,8 @@ export function parseSnapshot(raw: unknown): VaultSnapshot {
     s.schemaVersion !== 1 &&
     s.schemaVersion !== 2 &&
     s.schemaVersion !== 3 &&
-    s.schemaVersion !== 4
+    s.schemaVersion !== 4 &&
+    s.schemaVersion !== 5
   ) {
     throw new Error(
       `Versão de schema não suportada: ${String(s.schemaVersion)}`,
@@ -357,5 +358,17 @@ export function parseSnapshot(raw: unknown): VaultSnapshot {
     wealthHistory: Array.isArray(s.wealthHistory)
       ? s.wealthHistory
       : ledger.wealthHistory ?? [],
+    investmentPositionHistory: Array.isArray(s.investmentPositionHistory)
+      ? s.investmentPositionHistory
+      : [],
+    investmentAliases: Array.isArray(s.investmentAliases)
+      ? s.investmentAliases
+      : [],
+    importedDocuments: Array.isArray(s.importedDocuments)
+      ? s.importedDocuments
+      : [],
+    statementSummaries: Array.isArray(s.statementSummaries)
+      ? s.statementSummaries
+      : [],
   };
 }

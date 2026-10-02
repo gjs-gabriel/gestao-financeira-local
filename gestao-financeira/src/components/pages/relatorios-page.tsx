@@ -4,11 +4,24 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   buildAnnualReport,
   buildMonthReport,
+  categoryTrendChart,
+  detectAnomalies,
   formatBrl,
   listYearsAround,
+  monthKey,
+  projectedBalanceSeries,
   projectedCashflow,
 } from "@/domain";
 import { useVault } from "@/lib/vault-context";
+import {
+  CAT_COLORS,
+  CHART_BLUE,
+  brlTick,
+  chartTooltipStyle,
+  monthAxisTick,
+  tooltipBrl,
+  valueAxisTick,
+} from "@/components/charts/money-chart";
 import { Money, PageHeader } from "@/components/ui-helpers";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,6 +32,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const MONTHS = [
   "jan",
@@ -41,6 +63,7 @@ export function RelatoriosPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [horizon, setHorizon] = useState<3 | 6 | 12>(6);
+  const [highlight, setHighlight] = useState<string | null>(null);
   const years = useMemo(() => listYearsAround(now.getFullYear(), 2), [now]);
 
   if (!snapshot) return null;
@@ -48,6 +71,16 @@ export function RelatoriosPage() {
   const report = buildMonthReport(snapshot, year, month);
   const annual = buildAnnualReport(snapshot, year);
   const projection = projectedCashflow(snapshot, year, month, horizon, now);
+  const trend = categoryTrendChart(snapshot, year, month, 12, 5);
+  const trendRows = trend.points.map((point) => ({
+    key: point.key,
+    label: point.label,
+    ...point.values,
+  }));
+  const balanceSeries = projectedBalanceSeries(projection);
+  const anomalyIds = new Set(detectAnomalies(snapshot, now).map((item) => item.id));
+  const currentKey = monthKey(now.getFullYear(), now.getMonth() + 1);
+  const chartCategoryIds = new Set(trend.series.map((series) => series.categoryId));
 
   return (
     <div>
@@ -114,16 +147,87 @@ export function RelatoriosPage() {
           </div>
 
           <Block title="Gastos por categoria">
+            {trend.series.length > 0 ? (
+              <div className="mb-4">
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Trajetória das cinco categorias que mais pesam, até este mês.
+                  Clique numa categoria da lista para destacar a linha.
+                </p>
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendRows} margin={{ left: 4, right: 4 }}>
+                      <XAxis
+                        dataKey="label"
+                        tick={monthAxisTick}
+                        tickLine={false}
+                        axisLine={false}
+                        interval={1}
+                      />
+                      <YAxis
+                        tickFormatter={brlTick}
+                        width={68}
+                        tickLine={false}
+                        axisLine={false}
+                        tick={valueAxisTick}
+                      />
+                      <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                      <Legend />
+                      {trend.series.map((series, index) => {
+                        const marked = anomalyIds.has(`cat-${series.categoryId}`);
+                        const dimmed = highlight !== null && highlight !== series.categoryId;
+                        return (
+                          <Line
+                            key={series.categoryId}
+                            type="monotone"
+                            dataKey={series.categoryId}
+                            name={series.categoryName}
+                            stroke={CAT_COLORS[index % CAT_COLORS.length]}
+                            strokeWidth={2}
+                            strokeOpacity={dimmed ? 0.18 : 1}
+                            dot={
+                              marked ? (
+                                <MarkedDot markKey={currentKey} />
+                              ) : (
+                                false
+                              )
+                            }
+                            connectNulls={false}
+                          />
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : null}
             {report.categories.length === 0 ? (
               <Empty hint="Sem gastos no mês." />
             ) : (
               <ul className="space-y-1 text-sm">
-                {report.categories.map((c) => (
-                  <li key={c.categoryId} className="flex justify-between gap-3">
-                    <span>{c.categoryName}</span>
-                    <span className="tabular-nums">{formatBrl(c.amount)}</span>
-                  </li>
-                ))}
+                {report.categories.map((c) => {
+                  const active = highlight === c.categoryId;
+                  const inChart = chartCategoryIds.has(c.categoryId);
+                  return (
+                    <li key={c.categoryId} className="flex justify-between gap-3">
+                      {inChart ? (
+                        <button
+                          type="button"
+                          className={`text-left ${active ? "font-medium underline" : ""}`}
+                          onClick={() =>
+                            setHighlight((current) =>
+                              current === c.categoryId ? null : c.categoryId,
+                            )
+                          }
+                        >
+                          {c.categoryName}
+                        </button>
+                      ) : (
+                        <span>{c.categoryName}</span>
+                      )}
+                      <span className="tabular-nums">{formatBrl(c.amount)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Block>
@@ -229,6 +333,47 @@ export function RelatoriosPage() {
             Considera rendas/gastos recorrentes, parcelas, faturas e lançamentos
             datados. Meses futuros = previsto.
           </p>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={balanceSeries} margin={{ left: 4, right: 4 }}>
+                <XAxis
+                  dataKey="label"
+                  tick={monthAxisTick}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={horizon > 6 ? 1 : 0}
+                />
+                <YAxis
+                  tickFormatter={brlTick}
+                  width={68}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={valueAxisTick}
+                />
+                <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="realizado"
+                  name="Realizado"
+                  stroke={CHART_BLUE}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="previsto"
+                  name="Previsto"
+                  stroke={CHART_BLUE}
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  connectNulls={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
           <div className="overflow-x-auto rounded-xl border border-border/60">
             <table className="w-full min-w-[32rem] text-left text-sm">
               <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
@@ -299,4 +444,16 @@ function Block({
 
 function Empty({ hint }: { hint: string }) {
   return <p className="text-sm text-muted-foreground">{hint}</p>;
+}
+
+function MarkedDot(props: {
+  cx?: number;
+  cy?: number;
+  payload?: { key?: string };
+  stroke?: string;
+  markKey: string;
+}) {
+  const { cx, cy, payload, stroke, markKey } = props;
+  if (cx == null || cy == null || payload?.key !== markKey) return <g />;
+  return <circle cx={cx} cy={cy} r={4} fill={stroke ?? CHART_BLUE} />;
 }

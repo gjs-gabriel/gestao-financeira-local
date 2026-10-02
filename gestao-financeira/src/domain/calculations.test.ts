@@ -229,7 +229,7 @@ describe("institutions", () => {
       categories: [],
     };
     const s = parseSnapshot(raw);
-    assert.equal(s.schemaVersion, 4);
+    assert.equal(s.schemaVersion, 5);
     assert.deepEqual(s.installmentExpenses, []);
     assert.ok(s.accounts.length >= 1);
     assert.equal(s.accounts[0]!.id, "acc_principal");

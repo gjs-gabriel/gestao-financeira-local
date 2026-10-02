@@ -35,6 +35,8 @@ export interface ImportDraftRow {
   categoryId?: string;
   institutionId?: string;
   institutionOther?: string;
+  /** Conta já resolvida no cofre. Sem isso, usa a conta padrão. */
+  accountId?: string;
   include: boolean;
   duplicate: boolean;
 }
@@ -192,7 +194,10 @@ export function applyImportDraft(
         createdAt: now,
         updatedAt: now,
       };
-      next = upsertOneTimeExpenseSynced(next, item, { source: "import" });
+      next = upsertOneTimeExpenseSynced(next, item, {
+        source: "import",
+        accountId: row.accountId,
+      });
       addedExpenses += 1;
     } else {
       if (
@@ -212,7 +217,10 @@ export function applyImportDraft(
         createdAt: now,
         updatedAt: now,
       };
-      next = upsertOneTimeIncomeSynced(next, item, { source: "import" });
+      next = upsertOneTimeIncomeSynced(next, item, {
+        source: "import",
+        accountId: row.accountId,
+      });
       addedIncomes += 1;
     }
   }

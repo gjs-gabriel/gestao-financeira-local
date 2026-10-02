@@ -10,6 +10,9 @@ import {
   type ParsedDocument,
 } from "../types";
 import { validateImportDraft } from "../validation/ImportValidationEngine";
+import { parsedDocumentToIntermediate } from "../pipeline/to-intermediate";
+import { reconcileImport } from "../reconcile/engine";
+import type { FinancialImportIntermediate } from "../schema/intermediate";
 
 export function buildFinancialImportDraft(input: {
   parsed: ParsedDocument;
@@ -17,16 +20,14 @@ export function buildFinancialImportDraft(input: {
   fileName: string;
   userSessionId: string;
   snapshot: VaultSnapshot | null;
+  intermediate?: FinancialImportIntermediate;
 }): FinancialImportDraft {
   const { parsed, ai, fileName, userSessionId, snapshot } = input;
   const byId = new Map(ai.transactions.map((t) => [t.sourceRowId, t]));
 
   const transactions: FinancialImportDraftTxn[] = parsed.rows.map((row) => {
     const sug = byId.get(row.id);
-    const signed =
-      sug?.amount ??
-      row.amountCandidate ??
-      0;
+    const signed = sug?.amount ?? row.amountCandidate ?? 0;
     const abs = Math.abs(signed);
     const date = sug?.date ?? row.dateCandidate ?? "";
     const description =
@@ -46,10 +47,40 @@ export function buildFinancialImportDraft(input: {
     if (level === "low") {
       warnings.push("Baixa confiança — revise categoria e tipo");
     }
+    if (/pagamento de fatura/i.test(description)) {
+      warnings.push(
+        "Pagamento de fatura sai da conta. Confira se a compra já foi lançada no cartão.",
+      );
+    }
+    if (type === "investment") {
+      warnings.push(
+        "Valor de movimentação — não interpreta automaticamente como saldo do investimento.",
+      );
+    }
 
     let duplicate = false;
     let duplicateReason: string | undefined;
-    if (snapshot && date && abs > 0 && (type === "expense" || type === "income")) {
+    if (snapshot && date && abs > 0 && type === "investment") {
+      duplicate = (snapshot.transactions ?? []).some(
+        (tx) =>
+          (tx.kind === "investment_buy" || tx.kind === "investment_sell") &&
+          tx.date === date &&
+          Math.abs(tx.amount - abs) < 0.005 &&
+          tx.description.trim().toLowerCase() ===
+            description.trim().toLowerCase() &&
+          tx.status !== "ignored",
+      );
+      if (duplicate) {
+        duplicateReason = "Este aporte ou resgate já foi importado.";
+        warnings.push("Possível duplicata");
+      }
+    }
+    if (
+      snapshot &&
+      date &&
+      abs > 0 &&
+      (type === "expense" || type === "income")
+    ) {
       duplicate = detectDuplicate(
         snapshot,
         date,
@@ -64,7 +95,6 @@ export function buildFinancialImportDraft(input: {
       }
     }
 
-    // duplicata interna
     const status =
       errors.length > 0
         ? "error"
@@ -78,10 +108,13 @@ export function buildFinancialImportDraft(input: {
       date,
       description,
       amount: abs,
-      signedAmount: type === "income" ? abs : -abs,
+      signedAmount:
+        type === "income" ? abs : type === "investment" ? signed : -abs,
       type,
       categoryId: sug?.categoryIdSuggestion,
       categoryLabel: sug?.categorySuggestion ?? undefined,
+      institutionId: parsed.institution?.institutionId,
+      holdingName: row.holdingName,
       confidence: level,
       confidenceScore: score,
       status,
@@ -93,12 +126,10 @@ export function buildFinancialImportDraft(input: {
     };
   });
 
-  // marcar duplicatas internas no draft
   const seen = new Map<string, string>();
   for (const tx of transactions) {
     const key = `${tx.date}|${tx.amount}|${tx.description.trim().toLowerCase()}|${tx.type}`;
-    const prev = seen.get(key);
-    if (prev) {
+    if (seen.has(key)) {
       tx.duplicate = true;
       tx.duplicateReason =
         "Semelhante a outro lançamento neste mesmo documento.";
@@ -110,10 +141,26 @@ export function buildFinancialImportDraft(input: {
     }
   }
 
+  const intermediate =
+    input.intermediate ?? parsedDocumentToIntermediate(parsed, fileName);
+  const reconciliation = snapshot
+    ? reconcileImport({ intermediate, snapshot })
+    : undefined;
+
   const draft: FinancialImportDraft = {
     id: createId("imp"),
     userSessionId,
     source: parsed.sourceKind,
+    documentType: parsed.documentType,
+    institution: parsed.institution ?? null,
+    accountSnapshots: (parsed.accounts ?? []).map((account) => ({
+      ...account,
+      include: account.include !== false,
+    })),
+    holdings: (parsed.holdings ?? []).map((holding) => ({
+      ...holding,
+      include: holding.include !== false,
+    })),
     documentInfo: {
       fileName,
       period: parsed.period,
@@ -122,6 +169,8 @@ export function buildFinancialImportDraft(input: {
       closingBalance: parsed.closingBalance,
     },
     transactions,
+    intermediate,
+    reconciliation,
     validation: {
       errors: [],
       warnings: [],

@@ -187,7 +187,7 @@ describe("ledger", () => {
       institutions: [],
     };
     const s = parseSnapshot(raw);
-    assert.equal(s.schemaVersion, 4);
+    assert.equal(s.schemaVersion, 5);
     assert.equal(s.accounts.length, 1);
     assert.equal(s.transactions.length, 1);
     assert.equal(s.transactions[0]!.kind, "expense");
@@ -198,7 +198,7 @@ describe("ledger", () => {
 
   it("createEmptySnapshot já nasce no schema 4 com conta", () => {
     const s = createEmptySnapshot(now);
-    assert.equal(s.schemaVersion, 4);
+    assert.equal(s.schemaVersion, 5);
     assert.ok(s.accounts.length >= 1);
     assert.deepEqual(s.transactions, []);
   });

@@ -5,6 +5,7 @@ import { VaultProvider, useVault } from "@/lib/vault-context";
 import { AuthGate } from "@/components/auth-gate";
 import { AppNav } from "@/components/app-nav";
 import { AIProviderGate } from "@/ai/ui/AIProvider";
+import { AdminRouteGuard } from "@/components/admin-route-guard";
 import {
   formatMarinaCredentialsBanner,
   resetMarinaDemoProfile,
@@ -50,14 +51,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <MarinaSeedBridge />
       <AuthGate>
         <AIProviderGate>
-          <div className="app-shell flex min-h-dvh flex-col md:flex-row">
-            <AppNav />
-            <main className="flex-1 overflow-x-hidden px-4 py-6 md:px-8 md:py-10 lg:px-10">
-              <div className="mx-auto w-full max-w-[1280px] animate-fade-in">
-                {children}
-              </div>
-            </main>
-          </div>
+          <AdminRouteGuard>
+            <div className="app-shell flex min-h-dvh flex-col md:flex-row">
+              <AppNav />
+              <main className="flex-1 overflow-x-hidden px-4 py-6 md:px-8 md:py-10 lg:px-10">
+                <div className="mx-auto w-full max-w-[1280px] animate-fade-in">
+                  {children}
+                </div>
+              </main>
+            </div>
+          </AdminRouteGuard>
         </AIProviderGate>
       </AuthGate>
     </VaultProvider>

@@ -7,8 +7,9 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
-export const RUNTIME_VERSION = "1.0.0";
+export const RUNTIME_VERSION = "1.1.0";
 export const DEFAULT_PORT = Number(process.env.GF_AI_PORT || 43128);
 export const HOST = process.env.GF_AI_HOST || "127.0.0.1";
 export const OLLAMA_BASE =
@@ -21,12 +22,18 @@ export const INFERENCE_TIMEOUT_MS = Number(
   process.env.GF_AI_TIMEOUT_MS || 90_000,
 );
 export const MAX_TOKENS = Number(process.env.GF_AI_MAX_TOKENS || 768);
+export const SESSION_TTL_MS = Number(
+  process.env.GF_AI_SESSION_TTL_MS || 60 * 60 * 1000,
+);
 
 export const ALLOWED_ORIGINS = new Set(
   (
     process.env.GF_AI_ORIGINS ||
     "http://127.0.0.1:43127,http://localhost:43127"
-  ).split(",").map((s) => s.trim()).filter(Boolean),
+  )
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
 );
 
 const DATA_DIR =
@@ -39,26 +46,67 @@ export function ensureDataDir() {
 }
 
 export function tokenPath() {
-  return path.join(ensureDataDir(), "runtime-token.txt");
+  return path.join(ensureDataDir(), "runtime-master.key");
 }
 
-export function loadOrCreateToken() {
+/** Restringe ACL no Windows ao usuário atual (mode 0o600 não basta). */
+function hardenFileAcl(filePath) {
+  if (process.platform !== "win32") return;
+  try {
+    const user = os.userInfo().username;
+    spawnSync(
+      "icacls",
+      [filePath, "/inheritance:r", `/grant:r`, `${user}:F`],
+      { windowsHide: true, stdio: "ignore" },
+    );
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Master key em disco — NUNCA enviada ao frontend.
+ * Usada só para emitir sessões efêmeras.
+ */
+export function loadOrCreateMasterKey() {
   const p = tokenPath();
   if (fs.existsSync(p)) {
     const t = fs.readFileSync(p, "utf8").trim();
-    if (t.length >= 24) return t;
+    if (t.length >= 32) return t;
   }
   const token = crypto.randomBytes(32).toString("hex");
   fs.writeFileSync(p, token, { encoding: "utf8", mode: 0o600 });
+  hardenFileAcl(p);
   return token;
 }
 
+/** @deprecated use loadOrCreateMasterKey */
+export function loadOrCreateToken() {
+  return loadOrCreateMasterKey();
+}
+
 export function runtimeLog(event, meta = {}) {
-  // Nunca logar contexto financeiro / prompts / respostas
+  // Nunca logar tokens, contexto financeiro, prompts ou respostas
+  const safe = { ...meta };
+  for (const k of Object.keys(safe)) {
+    if (/token|bearer|authorization|pin|password|cipher/i.test(k)) {
+      delete safe[k];
+    }
+  }
   const line = JSON.stringify({
     ts: new Date().toISOString(),
     event,
-    ...meta,
+    ...safe,
   });
   console.info(line);
+}
+
+export function timingSafeEqualStr(a, b) {
+  const ba = Buffer.from(String(a ?? ""), "utf8");
+  const bb = Buffer.from(String(b ?? ""), "utf8");
+  if (ba.length !== bb.length) {
+    crypto.timingSafeEqual(ba, ba);
+    return false;
+  }
+  return crypto.timingSafeEqual(ba, bb);
 }

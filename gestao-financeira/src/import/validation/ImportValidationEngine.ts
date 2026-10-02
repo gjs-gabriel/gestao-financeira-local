@@ -25,7 +25,9 @@ export function validateImportDraft(
   }
 
   const included = draft.transactions.filter((t) => t.include && !t.duplicate);
-  if (included.length === 0) {
+  const accounts = (draft.accountSnapshots ?? []).filter((a) => a.include);
+  const holdings = (draft.holdings ?? []).filter((h) => h.include);
+  if (included.length === 0 && accounts.length === 0 && holdings.length === 0) {
     warnings.push("Nenhum lançamento selecionado para importar.");
   }
 
@@ -35,6 +37,9 @@ export function validateImportDraft(
   const expense = included
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
+  const investmentNet = included
+    .filter((t) => t.type === "investment")
+    .reduce((s, t) => s + t.signedAmount, 0);
 
   const opening = draft.documentInfo.openingBalance;
   const closing = draft.documentInfo.closingBalance;
@@ -48,7 +53,8 @@ export function validateImportDraft(
     Number.isFinite(opening) &&
     Number.isFinite(closing)
   ) {
-    const expected = Math.round((opening + income - expense) * 100) / 100;
+    const expected =
+      Math.round((opening + income - expense + investmentNet) * 100) / 100;
     const ok = Math.abs(expected - closing) < 0.05;
     balanceCheck = {
       applicable: true,
@@ -82,6 +88,10 @@ export function validateImportDraft(
 export function draftCanProceedToConfirm(draft: FinancialImportDraft): boolean {
   const v = validateImportDraft(draft);
   if (v.blockingErrors > 0) return false;
-  const selected = draft.transactions.filter((t) => t.include && !t.duplicate);
-  return selected.length > 0;
+  const selected = draft.transactions.filter(
+    (t) => t.include && !t.duplicate && t.errors.length === 0,
+  );
+  const accounts = (draft.accountSnapshots ?? []).filter((a) => a.include);
+  const holdings = (draft.holdings ?? []).filter((h) => h.include);
+  return selected.length > 0 || accounts.length > 0 || holdings.length > 0;
 }

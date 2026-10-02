@@ -138,10 +138,10 @@ export function removeRecurringExpenseSynced(
 export function upsertOneTimeExpenseSynced(
   snapshot: VaultSnapshot,
   item: OneTimeExpense,
-  opts?: { source?: Transaction["source"] },
+  opts?: { source?: Transaction["source"]; accountId?: string },
 ): VaultSnapshot {
   let next = ensureAccounts(snapshot);
-  const accountId = defaultAccountId(next);
+  const accountId = opts?.accountId ?? defaultAccountId(next);
   next = upsertEntity(next, "oneTimeExpenses", item);
   const tx: Transaction = {
     id: txIdFromOneTime(item.id, "expense"),
@@ -174,10 +174,10 @@ export function removeOneTimeExpenseSynced(
 export function upsertOneTimeIncomeSynced(
   snapshot: VaultSnapshot,
   item: OneTimeIncome,
-  opts?: { source?: Transaction["source"] },
+  opts?: { source?: Transaction["source"]; accountId?: string },
 ): VaultSnapshot {
   let next = ensureAccounts(snapshot);
-  const accountId = defaultAccountId(next);
+  const accountId = opts?.accountId ?? defaultAccountId(next);
   next = upsertEntity(next, "oneTimeIncomes", item);
   const tx: Transaction = {
     id: txIdFromOneTime(item.id, "income"),

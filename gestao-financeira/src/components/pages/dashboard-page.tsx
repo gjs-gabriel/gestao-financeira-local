@@ -386,7 +386,13 @@ export function DashboardPage() {
                   axisLine={false}
                   tick={{ fontSize: 11, fill: "oklch(0.5 0.02 170)" }}
                 />
-                <YAxis hide />
+                <YAxis
+                  tickFormatter={brlTick}
+                  width={64}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
+                />
                 <Tooltip
                   formatter={(v) => tooltipBrl(v)}
                   contentStyle={{

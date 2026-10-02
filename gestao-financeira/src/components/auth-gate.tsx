@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserRound, Presentation, Plus, ArrowLeft } from "lucide-react";
+import { UserRound, Presentation, Plus, ArrowLeft, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useVault, type CreateProfileMode } from "@/lib/vault-context";
 import {
+  ADMIN_PROFILE_ID,
   MARINA_DEMO_PIN,
   MARINA_DEMO_USERNAME,
   type UserProfile,
 } from "@/adapters";
+import { ADMIN_DISPLAY_NAME } from "@/domain/admin-profile";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const {
@@ -29,12 +31,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     migrateLegacy,
     abandonLegacyVault,
     ensureMarinaAlongside,
+    createAdminOnboarding,
   } = useVault();
 
-  const [view, setView] = useState<"home" | "create" | "empty_setup">("home");
+  const [view, setView] = useState<
+    "home" | "create" | "empty_setup" | "create_admin"
+  >("home");
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [name, setName] = useState("");
+  const [login, setLogin] = useState("");
   const [createMode, setCreateMode] = useState<CreateProfileMode>("empty");
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -82,6 +88,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setPin("");
       setConfirm("");
       setName("");
+      setLogin("");
       setView("home");
     } catch (e) {
       if (!error) {
@@ -101,10 +108,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <h1 className="gate-title">Encontramos seu cofre</h1>
           <p className="gate-lead">
             Há um cofre antigo neste navegador (antes do sistema de usuários).
-            Digite o <strong>PIN que você já usava</strong> para convertê-lo —
-            não é o PIN da demonstração Marina (
-            <code className="text-xs">{MARINA_DEMO_PIN}</code>), a menos que
-            seja o mesmo.
+            Digite o <strong>PIN que você já usava</strong> para convertê-lo.
+            O PIN da demonstração Marina é outro e só vale se for o mesmo que
+            você usava.
           </p>
         </div>
         <form
@@ -114,20 +120,36 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             void run(() =>
               migrateLegacy({
                 name: name.trim() || "Meu usuário",
+                login: login.trim() || "meu.usuario",
                 pin,
               }),
             );
           }}
         >
           <div className="space-y-2">
-            <Label htmlFor="mig-name">Nome do usuário</Label>
+            <Label htmlFor="mig-name">Nome de apresentação</Label>
             <Input
               id="mig-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Meu usuário"
+              placeholder="Ex.: João Silva"
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="mig-login">Login</Label>
+            <Input
+              id="mig-login"
+              value={login}
+              onChange={(e) => setLogin(e.target.value.toLowerCase())}
+              placeholder="ex.: joao.silva"
+              autoComplete="username"
+              spellCheck={false}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Sem espaços. Use letras, números, ponto, _ ou -.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="mig-pin">PIN atual do cofre</Label>
@@ -222,9 +244,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             Criar apresentação · Marina Costa
           </Button>
           <p className="px-1 text-xs text-muted-foreground">
-            Usuário <strong>{MARINA_DEMO_USERNAME}</strong> · PIN{" "}
-            <strong>{MARINA_DEMO_PIN}</strong> · Product Designer fictícia com
-            ~12 meses de dados.
+            Usuário <strong>{MARINA_DEMO_USERNAME}</strong> · perfil de
+            demonstração fictício (~12 meses de dados). O PIN de demo não é
+            credencial de produção.
+            {/* PIN de demo nunca é exibido na UI final/produção. */}
           </p>
           <Button
             variant="outline"
@@ -233,6 +256,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             onClick={() => {
               setView("empty_setup");
               setName("Meu usuário");
+              setLogin("meu.usuario");
             }}
           >
             <UserRound className="size-5" />
@@ -257,8 +281,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <p className="brand-mark">Gestão Financeira</p>
           <h1 className="gate-title">Criar usuário</h1>
           <p className="gate-lead">
-            Defina um nome e um PIN. O PIN cifra o cofre — não é armazenado em
-            texto puro.
+            Defina nome de apresentação, login e PIN. O PIN cifra o cofre — não
+            é armazenado em texto puro.
           </p>
         </div>
         <form
@@ -270,13 +294,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               return;
             }
             void run(() =>
-              createEmptyOnboarding(name.trim() || "Meu usuário", pin),
+              createEmptyOnboarding(
+                name.trim() || "Meu usuário",
+                login.trim(),
+                pin,
+              ),
             );
           }}
         >
           <NamePinFields
             name={name}
             setName={setName}
+            login={login}
+            setLogin={setLogin}
             pin={pin}
             setPin={setPin}
             confirm={confirm}
@@ -312,9 +342,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <h1 className="gate-title">Digite o PIN</h1>
           <p className="gate-lead">
             Desbloqueando <strong>{selectedProfile.name}</strong>
+            {selectedProfile.displayName
+              ? ` (@${selectedProfile.displayName})`
+              : ""}
             {selectedProfile.kind === "demo"
               ? " — dados de demonstração"
-              : " — dados pessoais"}
+              : selectedProfile.kind === "admin"
+                ? " — administração (sem ver dados de outros)"
+                : " — dados pessoais"}
           </p>
         </div>
         <form
@@ -347,6 +382,77 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           )}
           <Button type="submit" className="w-full" size="lg" disabled={busy}>
             {busy ? "Desbloqueando…" : "Desbloquear"}
+          </Button>
+        </form>
+      </GateShell>
+    );
+  }
+
+  // --- Criar administrador ---
+  if (view === "create_admin") {
+    return (
+      <GateShell>
+        <Back
+          onClick={() => {
+            setView("home");
+            setLocalError(null);
+          }}
+        />
+        <div className="gate-hero">
+          <p className="brand-mark">Gestão Financeira</p>
+          <h1 className="gate-title">{ADMIN_DISPLAY_NAME}</h1>
+          <p className="gate-lead">
+            Terceiro usuário com poder de excluir cofres neste dispositivo. Login
+            fixo <strong>admin.local</strong>. Não consegue abrir nem visualizar
+            os dados financeiros dos demais.
+          </p>
+        </div>
+        <form
+          className="gate-form space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (pin !== confirm) {
+              setLocalError("Os PINs não coincidem");
+              return;
+            }
+            void run(async () => {
+              await createAdminOnboarding(pin);
+            });
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="admin-pin">PIN do administrador</Label>
+            <Input
+              id="admin-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              required
+              minLength={4}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-pin-confirm">Confirmar PIN</Label>
+            <Input
+              id="admin-pin-confirm"
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              minLength={4}
+            />
+          </div>
+          {displayError && (
+            <Alert variant="destructive">
+              <AlertDescription>{displayError}</AlertDescription>
+            </Alert>
+          )}
+          <Button type="submit" className="w-full" size="lg" disabled={busy}>
+            {busy ? "Criando…" : "Criar administrador"}
           </Button>
         </form>
       </GateShell>
@@ -387,7 +493,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 await createDemoOnboarding(pin);
               } else {
                 await createProfile({
-                  name: name.trim() || (createMode === "demo" ? "Apresentação" : "Usuário"),
+                  name:
+                    name.trim() ||
+                    (createMode === "demo" ? "Apresentação" : "Usuário"),
+                  login:
+                    login.trim() ||
+                    (createMode === "demo" ? "apresentacao" : ""),
                   pin,
                   mode: createMode,
                   kind: createMode === "demo" ? "demo" : "personal",
@@ -399,10 +510,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <NamePinFields
             name={name}
             setName={setName}
+            login={login}
+            setLogin={setLogin}
             pin={pin}
             setPin={setPin}
             confirm={confirm}
             setConfirm={setConfirm}
+            requireLogin={createMode !== "demo"}
           />
           {status !== "no_users" && (
             <div className="space-y-2">
@@ -464,11 +578,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <span>
                 <span className="block font-medium">{p.name}</span>
                 <span className="text-sm text-muted-foreground">
-                  {p.kind === "demo" || p.id === "prof_marina_demo"
-                    ? p.displayName
-                      ? `${p.displayName} · demonstração`
-                      : "Dados de demonstração"
-                    : "Dados pessoais"}
+                  {p.displayName ? `@${p.displayName} · ` : ""}
+                  {p.kind === "admin"
+                    ? "Administrador · pode excluir, não vê dados"
+                    : p.kind === "demo" || p.id === "prof_marina_demo"
+                      ? "demonstração"
+                      : "dados pessoais"}
                 </span>
               </span>
             </button>
@@ -482,6 +597,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           setView("create");
           setCreateMode("empty");
           setName("");
+          setLogin("");
           setPin("");
           setConfirm("");
         }}
@@ -489,6 +605,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <Plus className="size-4" />
         Adicionar usuário
       </Button>
+      {!profiles.some((p) => p.id === ADMIN_PROFILE_ID || p.kind === "admin") && (
+        <Button
+          variant="outline"
+          className="mt-2 w-full gap-2"
+          onClick={() => {
+            setView("create_admin");
+            setPin("");
+            setConfirm("");
+            setLocalError(null);
+          }}
+        >
+          <Shield className="size-4" />
+          Criar administrador
+        </Button>
+      )}
       {!profiles.some((p) => p.id === "prof_marina_demo") && (
         <Button
           variant="outline"
@@ -516,29 +647,58 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 function NamePinFields({
   name,
   setName,
+  login,
+  setLogin,
   pin,
   setPin,
   confirm,
   setConfirm,
+  requireLogin = true,
 }: {
   name: string;
   setName: (v: string) => void;
+  login: string;
+  setLogin: (v: string) => void;
   pin: string;
   setPin: (v: string) => void;
   confirm: string;
   setConfirm: (v: string) => void;
+  requireLogin?: boolean;
 }) {
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="user-name">Nome</Label>
+        <Label htmlFor="user-name">Nome de apresentação</Label>
         <Input
           id="user-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ex.: Apresentação"
+          placeholder="Ex.: João Silva"
           required
         />
+        <p className="text-xs text-muted-foreground">
+          Como o nome aparece na lista. Pode ter espaços.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-login">Login</Label>
+        <Input
+          id="user-login"
+          value={login}
+          onChange={(e) =>
+            setLogin(e.target.value.toLowerCase().replace(/\s/g, ""))
+          }
+          placeholder="ex.: joao.silva"
+          autoComplete="username"
+          spellCheck={false}
+          required={requireLogin}
+          pattern="[a-z][a-z0-9._\-]*"
+          title="Sem espaços. Comece com letra; use a-z, 0-9, ., _ ou -"
+        />
+        <p className="text-xs text-muted-foreground">
+          Identificador único. Sem espaços entre palavras. Apenas letras
+          minúsculas, números, ponto, _ ou -.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="user-pin">PIN</Label>
@@ -574,7 +734,12 @@ function NamePinFields({
 }
 
 function ProfileAvatarIcon({ profile }: { profile: UserProfile }) {
-  const Icon = profile.kind === "demo" ? Presentation : UserRound;
+  const Icon =
+    profile.kind === "admin"
+      ? Shield
+      : profile.kind === "demo"
+        ? Presentation
+        : UserRound;
   return (
     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
       <Icon className="size-5" />

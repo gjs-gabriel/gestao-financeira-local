@@ -2,10 +2,23 @@
 
 import {
   formatBrl,
+  positionHistoryChart,
   wealthBreakdown,
+  wealthChartSeries,
   wealthHistorySeries,
 } from "@/domain";
 import { useVault } from "@/lib/vault-context";
+import {
+  CAT_COLORS,
+  CHART_AMBER,
+  CHART_BLUE,
+  CHART_TEAL,
+  brlTick,
+  chartTooltipStyle,
+  monthAxisTick,
+  tooltipBrl,
+  valueAxisTick,
+} from "@/components/charts/money-chart";
 import {
   EmptyState,
   Metric,
@@ -15,34 +28,28 @@ import {
   StatGroup,
 } from "@/components/ui-helpers";
 import {
-  Area,
-  AreaChart,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
-const BLUE = "oklch(0.48 0.1 250)";
-
-function brlTick(v: number) {
-  return v.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  });
-}
-
 export function PatrimonioPage() {
   const { snapshot } = useVault();
   if (!snapshot) return null;
 
   const w = wealthBreakdown(snapshot);
-  const series = wealthHistorySeries(snapshot).map((p) => ({
-    label: p.periodKey.slice(5),
-    patrimonio: p.netWorth,
-    ativos: p.assets,
-    passivos: p.liabilities,
+  const series = wealthChartSeries(wealthHistorySeries(snapshot));
+  const positions = positionHistoryChart(
+    snapshot.investmentPositionHistory ?? [],
+    new Map(snapshot.investments.map((item) => [item.id, item.name])),
+  );
+  const positionRows = positions.points.map((point) => ({
+    label: `${point.date.slice(8, 10)}/${point.date.slice(5, 7)}`,
+    ...point.values,
   }));
 
   return (
@@ -91,54 +98,93 @@ export function PatrimonioPage() {
         ) : (
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={series}>
-                <defs>
-                  <linearGradient id="patFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={BLUE} stopOpacity={0.22} />
-                    <stop offset="100%" stopColor={BLUE} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <LineChart data={series} margin={{ left: 4, right: 4 }}>
                 <XAxis
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 11, fill: "oklch(0.5 0.02 170)" }}
+                  tick={monthAxisTick}
                 />
                 <YAxis
                   tickFormatter={brlTick}
                   width={68}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
+                  tick={valueAxisTick}
                 />
-                <Tooltip
-                  formatter={(v) =>
-                    typeof v === "number"
-                      ? v.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })
-                      : String(v)
-                  }
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "1px solid oklch(0.9 0.015 165)",
-                    fontSize: 12,
-                  }}
-                />
-                <Area
+                <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                <Legend />
+                <Line
                   type="monotone"
-                  dataKey="patrimonio"
-                  name="PL"
-                  stroke={BLUE}
-                  fill="url(#patFill)"
+                  dataKey="ativos"
+                  name="Ativos"
+                  stroke={CHART_TEAL}
                   strokeWidth={2}
+                  dot={false}
                 />
-              </AreaChart>
+                <Line
+                  type="monotone"
+                  dataKey="passivos"
+                  name="Passivos"
+                  stroke={CHART_AMBER}
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="pl"
+                  name="Patrimônio líquido"
+                  stroke={CHART_BLUE}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         )}
       </Section>
+
+      {positions.series.length > 0 ? (
+        <Section
+          title="Como as posições evoluíram?"
+          hint="Aplicações com pelo menos dois registros no histórico importado"
+          className="border-t border-border/40"
+        >
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={positionRows} margin={{ left: 4, right: 4 }}>
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={monthAxisTick}
+                />
+                <YAxis
+                  tickFormatter={brlTick}
+                  width={68}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={valueAxisTick}
+                />
+                <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                <Legend />
+                {positions.series.map((item, index) => (
+                  <Line
+                    key={item.investmentId}
+                    type="monotone"
+                    dataKey={item.investmentId}
+                    name={item.name}
+                    stroke={CAT_COLORS[index % CAT_COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Section>
+      ) : null}
     </div>
   );
 }

@@ -25,9 +25,11 @@ export function ImportDropzone({
       ? ".pdf,application/pdf"
       : acceptKind === "csv"
         ? ".csv,text/csv"
-        : acceptKind === "xlsx" || acceptKind === "xls"
-          ? ".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-          : ".pdf,.csv,.xlsx,.xls";
+        : acceptKind === "ofx"
+          ? ".ofx,.qfx,application/x-ofx"
+          : acceptKind === "xlsx" || acceptKind === "xls"
+            ? ".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            : ".pdf,.csv,.xlsx,.xls,.ofx,.qfx";
 
   const handle = useCallback(
     (file: File | undefined) => {
@@ -97,7 +99,7 @@ export function ImportFormatCards({
     {
       kind: "pdf",
       title: "PDF",
-      subtitle: "Extrato bancário",
+      subtitle: "Extrato ou informe",
       icon: FileText,
     },
     {
@@ -109,13 +111,19 @@ export function ImportFormatCards({
     {
       kind: "csv",
       title: "CSV",
-      subtitle: "Arquivo",
+      subtitle: "Com mapeamento",
       icon: FileSpreadsheet,
+    },
+    {
+      kind: "ofx",
+      title: "OFX",
+      subtitle: "Extrato bancário",
+      icon: FileText,
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map(({ kind, title, subtitle, icon: Icon }) => (
         <button
           key={kind}

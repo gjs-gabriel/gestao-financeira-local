@@ -35,6 +35,10 @@ import {
   saveVaultEnvelope,
   slugifyProfileName,
   clearLegacyEnvelope,
+  createAdminProfile,
+  assertUniqueLogin,
+  validateDisplayName,
+  validateLogin,
   MARINA_DEMO_DISPLAY_NAME,
   MARINA_DEMO_PIN,
   MARINA_DEMO_PROFILE_ID,
@@ -43,6 +47,25 @@ import {
   type ProfileKind,
   type UserProfile,
 } from "@/adapters";
+import {
+  assertAdminCanEditTarget,
+  assertAdminCanWipeTarget,
+  toAdminVisibleProfile,
+} from "@/domain/admin-profile";
+import {
+  bumpSessionActivity,
+  clearPinFailures,
+  clearVaultSession,
+  clampIdleMs,
+  establishVaultSession,
+  getPinThrottleStatus,
+  getSessionPin,
+  recordPinFailure,
+  SESSION_IDLE_MS_DEFAULT,
+  setSessionIdleHandler,
+  setSessionIdleMs,
+} from "@/security";
+import { getRuntimeManager } from "@/ai/local/RuntimeManager";
 
 export type AuthStatus =
   | "loading"
@@ -75,6 +98,8 @@ interface VaultContextValue {
   switchUser: () => void;
   createProfile: (input: {
     name: string;
+    /** Login sem espaços */
+    login: string;
     pin: string;
     mode: CreateProfileMode;
     kind?: ProfileKind;
@@ -84,18 +109,43 @@ interface VaultContextValue {
   seedMarinaDemo: (opts?: { reset?: boolean; pin?: string }) => Promise<void>;
   /** Cria Marina se faltar, sem desbloquear (coexiste com outros usuários). */
   ensureMarinaAlongside: (pin?: string) => Promise<void>;
-  createEmptyOnboarding: (name: string, pin: string) => Promise<void>;
-  migrateLegacy: (input: { name: string; pin: string }) => Promise<void>;
+  createEmptyOnboarding: (
+    name: string,
+    login: string,
+    pin: string,
+  ) => Promise<void>;
+  migrateLegacy: (input: {
+    name: string;
+    login: string;
+    pin: string;
+  }) => Promise<void>;
   /** Descarta o cofre único antigo (sem PIN) e abre onboarding. */
   abandonLegacyVault: () => Promise<void>;
   renameProfile: (name: string) => Promise<void>;
   updateProfileMeta: (patch: {
     name?: string;
-    displayName?: string;
     avatar?: ProfileAvatar;
   }) => Promise<void>;
   changePin: (currentPin: string, newPin: string) => Promise<void>;
   deleteProfile: (profileId: string, pin: string) => Promise<void>;
+  /**
+   * Admin: apaga perfil/cofre alheio sem descriptografar.
+   * Exige PIN do admin (prova de identidade), nunca o PIN da vítima.
+   */
+  adminWipeProfile: (targetProfileId: string, adminPin: string) => Promise<void>;
+  /**
+   * Admin: altera nome e/ou login de outro usuário (só metadados públicos).
+   * Não abre o cofre do alvo.
+   */
+  adminUpdateUserProfile: (
+    targetProfileId: string,
+    patch: { name?: string; login?: string },
+  ) => Promise<void>;
+  /** Metadados públicos dos perfis (sem abrir cofres). */
+  listProfilesForAdmin: () => ReturnType<typeof toAdminVisibleProfile>[];
+  createAdminOnboarding: (pin: string) => Promise<void>;
+  ensureAdminAlongside: (pin: string) => Promise<void>;
+  isAdminSession: boolean;
   updateSnapshot: (
     updater: (prev: VaultSnapshot) => VaultSnapshot,
   ) => Promise<void>;
@@ -112,12 +162,17 @@ interface VaultContextValue {
 
 const VaultContext = createContext<VaultContextValue | null>(null);
 
-function clearSessionState(
+function wipeUnlockedMemory(
   setSnapshot: (v: VaultSnapshot | null) => void,
-  setPin: (v: string | null) => void,
 ) {
   setSnapshot(null);
-  setPin(null);
+  clearVaultSession();
+  try {
+    getRuntimeManager().getClient().setToken(null);
+    getRuntimeManager().cancel();
+  } catch {
+    /* runtime opcional */
+  }
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -128,7 +183,33 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     null,
   );
   const [snapshot, setSnapshot] = useState<VaultSnapshot | null>(null);
-  const [pin, setPin] = useState<string | null>(null);
+  // PIN NÃO fica em React state — só em vault-session (memória de processo)
+
+  useEffect(() => {
+    setSessionIdleMs(clampIdleMs(SESSION_IDLE_MS_DEFAULT));
+    setSessionIdleHandler(() => {
+      wipeUnlockedMemory(setSnapshot);
+      setStatus((prev) =>
+        prev === "unlocked" ? "pin_required" : prev,
+      );
+      setError("Cofre bloqueado por inatividade.");
+    });
+    return () => {
+      setSessionIdleHandler(null);
+      clearVaultSession();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (status !== "unlocked") return;
+    const onActivity = () => bumpSessionActivity();
+    window.addEventListener("pointerdown", onActivity);
+    window.addEventListener("keydown", onActivity);
+    return () => {
+      window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("keydown", onActivity);
+    };
+  }, [status]);
 
   const refreshProfiles = useCallback(async () => {
     const list = await listProfiles();
@@ -185,13 +266,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setError("Usuário não encontrado");
       return;
     }
-    clearSessionState(setSnapshot, setPin);
+    wipeUnlockedMemory(setSnapshot);
     setSelectedProfile(profile);
     setStatus("pin_required");
   }, []);
 
   const clearSelectedProfile = useCallback(() => {
-    clearSessionState(setSnapshot, setPin);
+    wipeUnlockedMemory(setSnapshot);
     setSelectedProfile(null);
     setStatus("user_selection");
   }, []);
@@ -203,6 +284,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setError("Selecione um usuário");
         throw new Error("Sem perfil");
       }
+      const throttle = getPinThrottleStatus(selectedProfile.vaultId);
+      if (throttle.blocked) {
+        setError(throttle.message ?? "Aguarde antes de tentar novamente.");
+        throw new Error("pin_throttled");
+      }
       const stored = await loadVaultEnvelope(selectedProfile.vaultId);
       if (!stored) {
         setError("Cofre do usuário não encontrado");
@@ -210,15 +296,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       try {
         const data = await decryptEnvelope(stored, tryPin);
+        clearPinFailures(selectedProfile.vaultId);
         const withWealth = recordWealthSnapshot(data);
+        establishVaultSession(selectedProfile.vaultId, tryPin);
         setSnapshot(withWealth);
-        setPin(tryPin);
         setStatus("unlocked");
         if (withWealth !== data) {
           await persistActive(selectedProfile, withWealth, tryPin);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Falha ao desbloquear");
+        if ((e as Error)?.message !== "pin_throttled") {
+          recordPinFailure(selectedProfile.vaultId);
+          const again = getPinThrottleStatus(selectedProfile.vaultId);
+          setError(
+            again.message ??
+              (e instanceof Error ? e.message : "Falha ao desbloquear"),
+          );
+        }
         throw e;
       }
     },
@@ -226,7 +320,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   );
 
   const lock = useCallback(() => {
-    clearSessionState(setSnapshot, setPin);
+    wipeUnlockedMemory(setSnapshot);
+    setError(null);
     if (selectedProfile) {
       setStatus("pin_required");
     } else if (profiles.length > 0) {
@@ -237,7 +332,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [selectedProfile, profiles.length]);
 
   const switchUser = useCallback(() => {
-    clearSessionState(setSnapshot, setPin);
+    wipeUnlockedMemory(setSnapshot);
     setSelectedProfile(null);
     setStatus("user_selection");
   }, []);
@@ -245,6 +340,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const createProfile = useCallback(
     async (input: {
       name: string;
+      login: string;
       pin: string;
       mode: CreateProfileMode;
       kind?: ProfileKind;
@@ -255,6 +351,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setError("O PIN deve ter pelo menos 4 dígitos");
         throw new Error("PIN curto");
       }
+      const nameCheck = validateDisplayName(input.name);
+      if (!nameCheck.ok) {
+        setError(nameCheck.error);
+        throw new Error(nameCheck.error);
+      }
+      const loginCheck = validateLogin(input.login);
+      if (!loginCheck.ok) {
+        setError(loginCheck.error);
+        throw new Error(loginCheck.error);
+      }
+      const existing = await listProfiles();
+      try {
+        assertUniqueLogin(loginCheck.value, existing);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Login em uso";
+        setError(msg);
+        throw e;
+      }
+
       const kind = input.kind ?? (input.mode === "demo" ? "demo" : "personal");
       const data =
         input.mode === "demo"
@@ -263,8 +378,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       // Perfil demo oficial usa IDs estáveis
       const profile =
         input.mode === "demo" &&
-        (input.name === MARINA_DEMO_DISPLAY_NAME ||
-          input.name === "Apresentação")
+        (nameCheck.value === MARINA_DEMO_DISPLAY_NAME ||
+          nameCheck.value === "Apresentação")
           ? {
               id: MARINA_DEMO_PROFILE_ID,
               name: MARINA_DEMO_DISPLAY_NAME,
@@ -276,7 +391,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               updatedAt: new Date().toISOString(),
             }
           : buildUserProfile({
-              name: input.name,
+              name: nameCheck.value,
+              login: loginCheck.value,
               kind,
               avatar: input.avatar,
             });
@@ -285,8 +401,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await putProfile(profile);
       await refreshProfiles();
       setSelectedProfile(profile);
+      establishVaultSession(profile.vaultId, input.pin);
       setSnapshot(data);
-      setPin(input.pin);
       setStatus("unlocked");
     },
     [refreshProfiles],
@@ -306,7 +422,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const data = await decryptEnvelope(again, newPin);
         setSelectedProfile(result.profile);
         setSnapshot(data);
-        setPin(newPin);
+        establishVaultSession(MARINA_DEMO_VAULT_ID, newPin);
         setStatus("unlocked");
         return;
       }
@@ -314,11 +430,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const data = await decryptEnvelope(stored, newPin);
         setSelectedProfile(result.profile);
         setSnapshot(data);
-        setPin(newPin);
+        establishVaultSession(MARINA_DEMO_VAULT_ID, newPin);
         setStatus("unlocked");
       } catch {
         setError(
-          "Não foi possível abrir o cofre da Marina com este PIN. Use o PIN 3247 ou redefina o perfil demo no Cofre.",
+          "Não foi possível abrir o cofre da Marina com este PIN. Redefina o perfil demo no Cofre se necessário.",
         );
         throw new Error("PIN Marina");
       }
@@ -350,7 +466,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (stored) {
           const data = await decryptEnvelope(stored, pin);
           setSnapshot(data);
-          setPin(pin);
+          establishVaultSession(MARINA_DEMO_VAULT_ID, pin);
         }
       }
     },
@@ -358,9 +474,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   );
 
   const createEmptyOnboarding = useCallback(
-    async (name: string, newPin: string) => {
+    async (name: string, login: string, newPin: string) => {
       await createProfile({
         name: name || "Meu usuário",
+        login,
         pin: newPin,
         mode: "empty",
         kind: "personal",
@@ -372,13 +489,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   /** Compat com PinGate antigo. */
   const setupPin = useCallback(
     async (newPin: string) => {
-      await createEmptyOnboarding("Meu usuário", newPin);
+      await createEmptyOnboarding("Meu usuário", "meu.usuario", newPin);
     },
     [createEmptyOnboarding],
   );
 
   const migrateLegacy = useCallback(
-    async (input: { name: string; pin: string }) => {
+    async (input: { name: string; login: string; pin: string }) => {
       setError(null);
       const legacy = await loadLegacyEnvelope();
       if (!legacy) {
@@ -387,15 +504,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       try {
         const data = await decryptEnvelope(legacy, input.pin);
-        const { profile } = planLegacyMigration({ name: input.name });
+        const { profile } = planLegacyMigration({
+          name: input.name,
+          login: input.login,
+        });
         await commitLegacyMigration(profile, legacy);
         // Marina fica disponível ao lado, com dados fixos (sem regenerar se já existir)
         await createMarinaDemoProfile(MARINA_DEMO_PIN);
         await refreshProfiles();
         const withWealth = recordWealthSnapshot(data);
         setSelectedProfile(profile);
+        establishVaultSession(profile.vaultId, input.pin);
         setSnapshot(withWealth);
-        setPin(input.pin);
         setStatus("unlocked");
         if (withWealth !== data) {
           await persistActive(profile, withWealth, input.pin);
@@ -417,7 +537,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const abandonLegacyVault = useCallback(async () => {
     setError(null);
     await clearLegacyEnvelope();
-    clearSessionState(setSnapshot, setPin);
+    wipeUnlockedMemory(setSnapshot);
     setSelectedProfile(null);
     const list = await listProfiles();
     setProfiles(list);
@@ -426,13 +546,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const updateSnapshot = useCallback(
     async (updater: (prev: VaultSnapshot) => VaultSnapshot) => {
+      const pin = getSessionPin(selectedProfile?.vaultId);
       if (!snapshot || !pin || !selectedProfile) {
         throw new Error("Cofre bloqueado");
       }
+      bumpSessionActivity();
       const next = updater(snapshot);
       await persistActive(selectedProfile, next, pin);
     },
-    [snapshot, pin, selectedProfile, persistActive],
+    [snapshot, selectedProfile, persistActive],
   );
 
   const renameProfile = useCallback(
@@ -453,17 +575,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const updateProfileMeta = useCallback(
     async (patch: {
       name?: string;
-      displayName?: string;
       avatar?: ProfileAvatar;
     }) => {
       if (!selectedProfile) throw new Error("Sem usuário ativo");
+
+      let name = selectedProfile.name;
+      if (patch.name !== undefined) {
+        const nameCheck = validateDisplayName(patch.name);
+        if (!nameCheck.ok) throw new Error(nameCheck.error);
+        name = nameCheck.value;
+      }
+
+      // Login (displayName) é imutável após a criação.
       const next: UserProfile = {
         ...selectedProfile,
-        name: patch.name?.trim() || selectedProfile.name,
-        displayName:
-          patch.displayName !== undefined
-            ? patch.displayName.trim() || undefined
-            : selectedProfile.displayName,
+        name,
+        displayName: selectedProfile.displayName,
         avatar: patch.avatar ?? selectedProfile.avatar,
         updatedAt: new Date().toISOString(),
       };
@@ -489,7 +616,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!stored) throw new Error("Cofre não encontrado");
       await decryptEnvelope(stored, currentPin);
       await persistActive(selectedProfile, snapshot, newPin);
-      setPin(newPin);
+      establishVaultSession(selectedProfile.vaultId, newPin);
     },
     [selectedProfile, snapshot, persistActive],
   );
@@ -506,7 +633,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       const wasActive = selectedProfile?.id === profileId;
       if (wasActive) {
-        clearSessionState(setSnapshot, setPin);
+        wipeUnlockedMemory(setSnapshot);
         setSelectedProfile(null);
       }
       const remaining = await listProfiles();
@@ -520,7 +647,122 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [selectedProfile],
   );
 
+  /**
+   * Exclusão administrativa: valida só o PIN do admin.
+   * O envelope da vítima é apagado sem decrypt — admin não vê os dados.
+   */
+  const adminWipeProfile = useCallback(
+    async (targetProfileId: string, adminPin: string) => {
+      setError(null);
+      if (status !== "unlocked" || selectedProfile?.kind !== "admin") {
+        throw new Error("Sessão de administrador necessária.");
+      }
+      const target = await getProfile(targetProfileId);
+      if (!target) throw new Error("Usuário não encontrado");
+
+      assertAdminCanWipeTarget({
+        actorKind: selectedProfile.kind,
+        actorId: selectedProfile.id,
+        targetId: target.id,
+        targetKind: target.kind,
+      });
+
+      const adminEnvelope = await loadVaultEnvelope(selectedProfile.vaultId);
+      if (!adminEnvelope) throw new Error("Cofre do administrador não encontrado");
+      // Prova identidade do admin — NÃO abre o cofre da vítima.
+      await decryptEnvelope(adminEnvelope, adminPin);
+
+      // Apaga bytes cifrados sem jamais parsear o snapshot da vítima.
+      await deleteProfileAndVault(target.id, target.vaultId);
+
+      const remaining = await listProfiles();
+      setProfiles(remaining);
+    },
+    [status, selectedProfile],
+  );
+
+  const adminUpdateUserProfile = useCallback(
+    async (
+      targetProfileId: string,
+      patch: { name?: string; login?: string },
+    ) => {
+      setError(null);
+      if (status !== "unlocked" || selectedProfile?.kind !== "admin") {
+        throw new Error("Sessão de administrador necessária.");
+      }
+      const target = await getProfile(targetProfileId);
+      if (!target) throw new Error("Usuário não encontrado");
+
+      assertAdminCanEditTarget({
+        actorKind: selectedProfile.kind,
+        actorId: selectedProfile.id,
+        targetId: target.id,
+        targetKind: target.kind,
+      });
+
+      let name = target.name;
+      if (patch.name !== undefined) {
+        const nameCheck = validateDisplayName(patch.name);
+        if (!nameCheck.ok) throw new Error(nameCheck.error);
+        name = nameCheck.value;
+      }
+
+      let login = target.displayName;
+      if (patch.login !== undefined) {
+        const loginCheck = validateLogin(patch.login);
+        if (!loginCheck.ok) throw new Error(loginCheck.error);
+        const existing = await listProfiles();
+        assertUniqueLogin(loginCheck.value, existing, target.id);
+        login = loginCheck.value;
+      }
+
+      const next: UserProfile = {
+        ...target,
+        name,
+        displayName: login,
+        updatedAt: new Date().toISOString(),
+      };
+      await putProfile(next);
+      await refreshProfiles();
+    },
+    [status, selectedProfile, refreshProfiles],
+  );
+
+  const listProfilesForAdmin = useCallback(() => {
+    return profiles
+      .filter((p) => p.id !== selectedProfile?.id)
+      .map((p) => toAdminVisibleProfile(p));
+  }, [profiles, selectedProfile]);
+
+  const createAdminOnboarding = useCallback(
+    async (pin: string) => {
+      setError(null);
+      const result = await createAdminProfile(pin);
+      await refreshProfiles();
+      const stored = await loadVaultEnvelope(result.profile.vaultId);
+      if (!stored) throw new Error("Falha ao criar cofre do administrador");
+      const data = await decryptEnvelope(stored, pin);
+      setSelectedProfile(result.profile);
+      establishVaultSession(result.profile.vaultId, pin);
+      setSnapshot(data);
+      setStatus("unlocked");
+    },
+    [refreshProfiles],
+  );
+
+  const ensureAdminAlongside = useCallback(
+    async (pin: string) => {
+      await createAdminProfile(pin);
+      await refreshProfiles();
+    },
+    [refreshProfiles],
+  );
+
+  const isAdminSession =
+    status === "unlocked" && selectedProfile?.kind === "admin";
+
   const downloadVault = useCallback(async () => {
+    const pin = getSessionPin(selectedProfile?.vaultId);
     if (!pin || !snapshot || !selectedProfile) {
       throw new Error("Desbloqueie o cofre para baixar");
     }
@@ -528,7 +770,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await saveVaultEnvelope(selectedProfile.vaultId, enc);
     const slug = slugifyProfileName(selectedProfile.name);
     downloadGfin(enc, `${slug}.gfin`);
-  }, [pin, snapshot, selectedProfile]);
+  }, [snapshot, selectedProfile]);
 
   const importVault = useCallback(
     async (
@@ -545,8 +787,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           throw new Error("Nenhum usuário ativo para substituir");
         }
         await saveVaultEnvelope(selectedProfile.vaultId, imported);
+        establishVaultSession(selectedProfile.vaultId, importPin);
         setSnapshot(data);
-        setPin(importPin);
         setStatus("unlocked");
         return;
       }
@@ -555,8 +797,34 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         opts.name?.trim() ||
         file.name.replace(/\.gfin$/i, "") ||
         "Importado";
+      const derivedLogin =
+        name
+          .normalize("NFD")
+          .replace(/\p{M}/gu, "")
+          .toLowerCase()
+          .replace(/\s+/g, ".")
+          .replace(/[^a-z0-9._-]/g, "")
+          .replace(/^\.+|\.+$/g, "")
+          .slice(0, 28) || "importado";
+      const login = /^[a-z]/.test(derivedLogin)
+        ? derivedLogin
+        : `u.${derivedLogin}`;
+      const existing = await listProfiles();
+      let uniqueLogin = login;
+      let n = 2;
+      while (
+        existing.some(
+          (p) =>
+            p.displayName &&
+            p.displayName.toLowerCase() === uniqueLogin.toLowerCase(),
+        )
+      ) {
+        uniqueLogin = `${login.slice(0, 28)}${n}`;
+        n += 1;
+      }
       const profile = buildUserProfile({
         name,
+        login: uniqueLogin,
         kind: "personal",
         avatar: "user",
       });
@@ -564,14 +832,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await putProfile(profile);
       await refreshProfiles();
       setSelectedProfile(profile);
+      establishVaultSession(profile.vaultId, importPin);
       setSnapshot(data);
-      setPin(importPin);
       setStatus("unlocked");
     },
     [selectedProfile, refreshProfiles],
   );
 
   const resetLocalVault = useCallback(async () => {
+    const pin = getSessionPin(selectedProfile?.vaultId);
     if (selectedProfile && pin) {
       try {
         await deleteProfile(selectedProfile.id, pin);
@@ -580,12 +849,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         /* fall through */
       }
     }
-    clearSessionState(setSnapshot, setPin);
+    wipeUnlockedMemory(setSnapshot);
     setSelectedProfile(null);
     const list = await listProfiles();
     setProfiles(list);
     setStatus(list.length > 0 ? "user_selection" : "no_users");
-  }, [selectedProfile, pin, deleteProfile]);
+  }, [selectedProfile, deleteProfile]);
 
   const value = useMemo<VaultContextValue>(
     () => ({
@@ -615,6 +884,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       updateProfileMeta,
       changePin,
       deleteProfile,
+      adminWipeProfile,
+      adminUpdateUserProfile,
+      listProfilesForAdmin,
+      createAdminOnboarding,
+      ensureAdminAlongside,
+      isAdminSession,
       updateSnapshot,
       downloadVault,
       importVault,
@@ -645,6 +920,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       updateProfileMeta,
       changePin,
       deleteProfile,
+      adminWipeProfile,
+      adminUpdateUserProfile,
+      listProfilesForAdmin,
+      createAdminOnboarding,
+      ensureAdminAlongside,
+      isAdminSession,
       updateSnapshot,
       downloadVault,
       importVault,
@@ -666,5 +947,6 @@ export function useVault() {
 
 /** Helper testável: zera snapshot/pin de uma sessão. */
 export function createEmptySession() {
+  clearVaultSession();
   return { snapshot: null as VaultSnapshot | null, pin: null as string | null };
 }

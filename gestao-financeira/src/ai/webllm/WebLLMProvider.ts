@@ -32,8 +32,9 @@ type EngineLike = {
 };
 
 /**
- * Provider WebLLM — exige WebGPU.
- * Em DXGI_ERROR_DEVICE_REMOVED: para imediatamente e expõe o erro na UI.
+ * Provider WebLLM — EXPERIMENTAL / legado.
+ * A CSP do app bloqueia CDN externos; o caminho principal é o Local AI Runtime.
+ * Não usar como requisito de produção.
  */
 export class WebLLMProvider implements LocalAIProvider {
   readonly id = "webllm";
@@ -249,6 +250,22 @@ export class WebLLMProvider implements LocalAIProvider {
     modelId: string,
     onProgress?: (p: AIModelProgress) => void,
   ): Promise<void> {
+    // Cadeia de confiança: pesos via CDN externos estão bloqueados pela CSP
+    // (connect-src só self + 127.0.0.1:43128). Inferência de produção = Local AI Runtime.
+    const allowCdn =
+      typeof process !== "undefined" &&
+      process.env?.NEXT_PUBLIC_ALLOW_WEBLLM_CDN === "1";
+    if (!allowCdn) {
+      const msg =
+        "WebLLM/CDN desabilitado por política de segurança. Use o Local AI Runtime (Ollama em 127.0.0.1).";
+      this.setFailure("unsupported", msg, "webllm_cdn_blocked", modelId);
+      onProgress?.(this.getStatus());
+      throw new Error(msg);
+    }
+    if (!(AI_MODEL_FALLBACK_CHAIN as readonly string[]).includes(modelId)) {
+      throw new Error("webllm_model_not_allowlisted");
+    }
+
     aiLog("AI_MODEL_LOADING", modelId);
     this.setStatus("downloading", 0, `Baixando ${modelId}…`, modelId);
     onProgress?.(this.getStatus());

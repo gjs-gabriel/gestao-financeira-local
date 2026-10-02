@@ -9,6 +9,7 @@ import type {
   AIImportSuggestion,
   ParsedDocument,
 } from "../types";
+import { isImportOfflineMode } from "../offline-mode";
 
 const RULES: { pattern: RegExp; category: string; type?: "expense" | "income" }[] =
   [
@@ -101,9 +102,15 @@ export async function analyzeImportDocument(
 
   let usedAI = false;
 
-  // IA só para itens de baixa confiança e quando solicitado
+  // IA só para itens de baixa confiança e quando solicitado (nunca em modo offline)
   const low = transactions.filter((t) => t.confidence < 0.7);
-  if (opts?.useLocalAI && opts.generate && low.length > 0 && low.length <= 40) {
+  if (
+    opts?.useLocalAI &&
+    opts.generate &&
+    low.length > 0 &&
+    low.length <= 40 &&
+    !isImportOfflineMode()
+  ) {
     try {
       const payload = low.map((t) => ({
         id: t.sourceRowId,

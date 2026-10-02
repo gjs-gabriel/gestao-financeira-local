@@ -1,4 +1,10 @@
 import type {
+  DatedInvestmentPosition,
+  ImportedDocumentMeta,
+  InvestmentAlias,
+  StatementSummary,
+} from "./import-entities";
+import type {
   Account,
   CreditCard,
   CreditCardInvoice,
@@ -14,8 +20,9 @@ import type { Budget, CategorizationRule, WealthSnapshot } from "./v15-types";
  * Valores monetários: número decimal em BRL (ex.: 1500.50 = R$ 1.500,50).
  * Datas: strings ISO 8601 (YYYY-MM-DD ou timestamp completo).
  *
- * Schema 4 introduz o ledger (Account + Transaction). Listas legadas
- * (incomes, oneTimeExpenses, …) permanecem até a Fase 2 reescrever a UI.
+ * Schema 4 introduz o ledger (Account + Transaction).
+ * Schema 5: histórico de posições, aliases e metadados de documentos importados.
+ * Listas legadas (incomes, oneTimeExpenses, …) permanecem até a Fase 2.
  */
 
 export type IncomeType = "salary" | "vr" | "va" | "other";
@@ -71,7 +78,11 @@ export interface Income extends WithInstitution {
 export interface Investment extends WithInstitution {
   id: string;
   name: string;
-  /** Saldo atual em BRL */
+  /** Nome bruto da última fonte (documento), se distinto. */
+  rawName?: string;
+  /** Nome normalizado para matching. */
+  normalizedName?: string;
+  /** Saldo / posição corrente em BRL (espelho da posição mais recente). */
   amount: number;
   classification: InvestmentClass;
   categoryId?: string;
@@ -79,6 +90,14 @@ export interface Investment extends WithInstitution {
    * @deprecated use institutionId — texto livre legado, migrado no parse.
    */
   institution?: string;
+  /** Identificadores estáveis quando disponíveis. */
+  isin?: string;
+  cnpj?: string;
+  ticker?: string;
+  externalId?: string;
+  /** ISO YYYY-MM-DD */
+  maturityDate?: string;
+  lifecycle?: "active" | "closed" | "unknown";
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -171,10 +190,11 @@ export interface Goal {
 export interface VaultSnapshot {
   /**
    * Versão do schema do snapshot.
-   * 1 = MVP; 2 = instituições; 3 = parcelas; 4 = ledger (contas/transações/cartões).
-   * parseSnapshot aceita 1–4 e normaliza para a versão atual.
+   * 1 = MVP; 2 = instituições; 3 = parcelas; 4 = ledger;
+   * 5 = histórico de posições / aliases / documentos importados.
+   * parseSnapshot aceita 1–5 e normaliza para a versão atual.
    */
-  schemaVersion: 1 | 2 | 3 | 4;
+  schemaVersion: 1 | 2 | 3 | 4 | 5;
   updatedAt: string;
   /** --- Legado (UI atual / projeção) --- */
   incomes: Income[];
@@ -199,6 +219,11 @@ export interface VaultSnapshot {
   categorizationRules: CategorizationRule[];
   /** Histórico mensal de patrimônio (V2). */
   wealthHistory: WealthSnapshot[];
+  /** --- Import / conciliação (schema 5) --- */
+  investmentPositionHistory: DatedInvestmentPosition[];
+  investmentAliases: InvestmentAlias[];
+  importedDocuments: ImportedDocumentMeta[];
+  statementSummaries: StatementSummary[];
 }
 
 /** Envelope versionado do arquivo .gfin — contrato estável web ↔ app futuro. */
@@ -222,5 +247,5 @@ export interface GfinEnvelope {
 
 export const GFIN_FORMAT_VERSION = 1 as const;
 /** Schema atual do snapshot em claro (dentro do envelope). */
-export const SNAPSHOT_SCHEMA_VERSION = 4 as const;
+export const SNAPSHOT_SCHEMA_VERSION = 5 as const;
 export const PBKDF2_ITERATIONS = 310_000;

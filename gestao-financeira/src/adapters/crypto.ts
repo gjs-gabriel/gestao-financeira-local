@@ -5,6 +5,8 @@ import {
   type GfinEnvelope,
   type VaultSnapshot,
 } from "@/domain";
+import { assertSafeGfinEnvelope } from "@/security/gfin-guard";
+import { validateGfinEnvelope } from "@/security/gfin-validate";
 
 function b64Encode(bytes: ArrayBuffer | Uint8Array): string {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -42,12 +44,12 @@ async function deriveKey(
     },
     baseKey,
     { name: "AES-GCM", length: 256 },
-    false,
+    false, // non-extractable
     ["encrypt", "decrypt"],
   );
 }
 
-/** Cifra o snapshot com PIN → envelope .gfin versionado. */
+/** Cifra o snapshot com PIN → envelope .gfin versionado (AES-256-GCM). */
 export async function encryptSnapshot(
   snapshot: VaultSnapshot,
   pin: string,
@@ -84,14 +86,9 @@ export async function decryptEnvelope(
   envelope: GfinEnvelope,
   pin: string,
 ): Promise<VaultSnapshot> {
-  if (envelope.format !== "gfin") {
-    throw new Error("Arquivo não é um cofre .gfin válido");
-  }
-  if (envelope.version !== 1) {
-    throw new Error(
-      `Versão do cofre não suportada: ${String(envelope.version)}`,
-    );
-  }
+  // Validar ANTES do KDF (protege contra .gfin fabricado com iterações absurdas)
+  assertSafeGfinEnvelope(envelope);
+
   const salt = b64Decode(envelope.kdf.salt);
   const iv = b64Decode(envelope.cipher.iv);
   const key = await deriveKey(pin, salt, envelope.kdf.iterations);
@@ -109,15 +106,9 @@ export async function decryptEnvelope(
 }
 
 export function parseEnvelope(raw: unknown): GfinEnvelope {
-  if (!raw || typeof raw !== "object") {
-    throw new Error("Envelope inválido");
+  const checked = validateGfinEnvelope(raw);
+  if (!checked.ok) {
+    throw new Error(checked.error);
   }
-  const e = raw as Partial<GfinEnvelope>;
-  if (e.format !== "gfin" || e.version !== 1) {
-    throw new Error("Formato .gfin inválido ou versão não suportada");
-  }
-  if (!e.kdf?.salt || !e.cipher?.iv || !e.ciphertext) {
-    throw new Error("Envelope .gfin incompleto");
-  }
-  return e as GfinEnvelope;
+  return checked.envelope;
 }

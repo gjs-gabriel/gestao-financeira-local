@@ -1,17 +1,24 @@
 /**
  * Servidor HTTP local do Assistente Financeiro.
- * Bind: 127.0.0.1 — Bearer token — CORS restrito.
+ * Bind: 127.0.0.1 — sessões efêmeras — CORS restrito.
+ *
+ * GET /health — público local (sem segredos financeiros). Documentado.
+ * POST /session — emite bearer de curta duração (localhost + Origin allowlist).
+ * GET /pair — descontinuado (410); use POST /session.
  */
 
 import http from "node:http";
+import crypto from "node:crypto";
 import {
   ALLOWED_ORIGINS,
   DEFAULT_MODEL,
   DEFAULT_PORT,
   HOST,
   RUNTIME_VERSION,
-  loadOrCreateToken,
+  SESSION_TTL_MS,
+  loadOrCreateMasterKey,
   runtimeLog,
+  timingSafeEqualStr,
 } from "./config.js";
 import {
   assertSafeContext,
@@ -24,20 +31,49 @@ import {
   pickInstalledModel,
 } from "./ollama.js";
 
+/** @type {Map<string, { expiresAt: number }>} */
+const sessions = new Map();
+
+function pruneSessions() {
+  const now = Date.now();
+  for (const [k, v] of sessions) {
+    if (v.expiresAt <= now) sessions.delete(k);
+  }
+}
+
+function issueSession() {
+  pruneSessions();
+  const token = crypto.randomBytes(32).toString("hex");
+  sessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+}
+
+function revokeAllSessions() {
+  sessions.clear();
+}
+
 export function createServer() {
-  const token = loadOrCreateToken();
+  const masterKey = loadOrCreateMasterKey();
   let busy = false;
 
   const server = http.createServer(async (req, res) => {
     try {
-      await handle(req, res, { token, getBusy: () => busy, setBusy: (v) => { busy = v; } });
+      await handle(req, res, {
+        masterKey,
+        getBusy: () => busy,
+        setBusy: (v) => {
+          busy = v;
+        },
+      });
     } catch (e) {
-      runtimeLog("request_error", { error: e instanceof Error ? e.name : "error" });
+      runtimeLog("request_error", {
+        error: e instanceof Error ? e.name : "error",
+      });
       sendJson(res, 500, { error: "internal_error" }, req);
     }
   });
 
-  return { server, token };
+  return { server, token: masterKey };
 }
 
 async function handle(req, res, ctx) {
@@ -53,6 +89,7 @@ async function handle(req, res, ctx) {
 
   writeCors(res, origin);
 
+  // Público: health não inclui tokens nem dados financeiros.
   if (url.pathname === "/health" && req.method === "GET") {
     const reachable = await ollamaReachable();
     const models = reachable ? await listModels() : [];
@@ -68,24 +105,53 @@ async function handle(req, res, ctx) {
     return;
   }
 
-  // Pareamento: só localhost, sem Bearer (gera/retorna token do arquivo local)
-  if (url.pathname === "/pair" && req.method === "GET") {
+  // Sessão efêmera — exige socket local + Origin allowlist (quando presente)
+  if (url.pathname === "/session" && req.method === "POST") {
     if (!isLocalSocket(req)) {
-      sendJson(res, 403, { error: "pair_localhost_only" });
+      sendJson(res, 403, { error: "session_localhost_only" });
       return;
     }
-    sendJson(res, 200, { token: ctx.token, version: RUNTIME_VERSION });
+    if (origin && !ALLOWED_ORIGINS.has(origin)) {
+      sendJson(res, 403, { error: "origin_denied" });
+      return;
+    }
+    const token = issueSession();
+    runtimeLog("session_issued", { ttlMs: SESSION_TTL_MS });
+    sendJson(res, 200, {
+      token,
+      expiresIn: Math.floor(SESSION_TTL_MS / 1000),
+      version: RUNTIME_VERSION,
+    });
+    return;
+  }
+
+  // Pareamento antigo removido — não entrega master key
+  if (url.pathname === "/pair") {
+    sendJson(res, 410, {
+      error: "pair_deprecated",
+      message: "Use POST /session",
+    });
     return;
   }
 
   if (url.pathname === "/shutdown" && req.method === "POST") {
-    if (!requireAuth(req, res, ctx.token)) return;
+    if (!requireMasterOrSession(req, res, ctx.masterKey)) return;
+    // Preferir master para shutdown; sessão também pode encerrar runtime local
+    revokeAllSessions();
     sendJson(res, 200, { ok: true });
     setTimeout(() => process.exit(0), 200);
     return;
   }
 
-  if (!requireAuth(req, res, ctx.token)) return;
+  if (url.pathname === "/logout" && req.method === "POST") {
+    if (!requireAuth(req, res, ctx.masterKey)) return;
+    const presented = bearerFrom(req);
+    if (presented) sessions.delete(presented);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (!requireAuth(req, res, ctx.masterKey)) return;
 
   if (url.pathname === "/status" && req.method === "GET") {
     const reachable = await ollamaReachable();
@@ -134,6 +200,7 @@ async function handle(req, res, ctx) {
     }
     const body = await readJson(req);
     try {
+      assertAllowedBodyKeys(body, ["context"]);
       assertSafeContext(body.context);
     } catch (e) {
       sendJson(res, 400, {
@@ -174,6 +241,7 @@ async function handle(req, res, ctx) {
     }
     const body = await readJson(req);
     try {
+      assertAllowedBodyKeys(body, ["context", "question"]);
       assertSafeContext(body.context);
     } catch (e) {
       sendJson(res, 400, {
@@ -214,14 +282,54 @@ async function handle(req, res, ctx) {
   sendJson(res, 404, { error: "not_found" });
 }
 
-function requireAuth(req, res, token) {
+function assertAllowedBodyKeys(body, allowed) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error("body_invalid");
+  }
+  const allow = new Set(allowed);
+  for (const k of Object.keys(body)) {
+    if (!allow.has(k)) throw new Error("body_unexpected_fields");
+  }
+}
+
+function bearerFrom(req) {
   const h = req.headers.authorization || "";
   const m = /^Bearer\s+(.+)$/i.exec(h);
-  if (!m || m[1] !== token) {
+  return m ? m[1] : null;
+}
+
+function requireAuth(req, res, masterKey) {
+  const presented = bearerFrom(req);
+  if (!presented) {
     sendJson(res, 401, { error: "unauthorized" });
     return false;
   }
-  return true;
+  pruneSessions();
+  const sess = sessions.get(presented);
+  if (sess && sess.expiresAt > Date.now()) {
+    return true;
+  }
+  // Master key NÃO autentica APIs de dados — só shutdown (verificado no handler)
+  if (timingSafeEqualStr(presented, masterKey)) {
+    sendJson(res, 401, { error: "unauthorized" });
+    return false;
+  }
+  sendJson(res, 401, { error: "unauthorized" });
+  return false;
+}
+
+function requireMasterOrSession(req, res, masterKey) {
+  const presented = bearerFrom(req);
+  if (!presented) {
+    sendJson(res, 401, { error: "unauthorized" });
+    return false;
+  }
+  pruneSessions();
+  if (timingSafeEqualStr(presented, masterKey)) return true;
+  const sess = sessions.get(presented);
+  if (sess && sess.expiresAt > Date.now()) return true;
+  sendJson(res, 401, { error: "unauthorized" });
+  return false;
 }
 
 function isLocalSocket(req) {
@@ -244,7 +352,6 @@ function writeCors(res, origin) {
     );
     res.setHeader("Access-Control-Max-Age", "600");
   }
-  // Sem Access-Control-Allow-Origin: * jamais
 }
 
 function sendJson(res, code, obj, req) {
@@ -283,21 +390,16 @@ function readJson(req) {
 }
 
 export function startRuntime(port = DEFAULT_PORT) {
-  const { server, token } = createServer();
+  const { server } = createServer();
   server.listen(port, HOST, () => {
     runtimeLog("runtime_started", {
       host: HOST,
       port,
       version: RUNTIME_VERSION,
-      tokenHint: `${token.slice(0, 6)}…`,
     });
     console.info(
-      `[GF-AI] Runtime em http://${HOST}:${port} (token em ~/.gestao-financeira-ai/runtime-token.txt)`,
+      `[GF-AI] Runtime em http://${HOST}:${port} (sessões efêmeras; master key local)`,
     );
-    console.info(
-      `[GF-AI] Requer Ollama em ${process.env.GF_OLLAMA_URL || "http://127.0.0.1:11434"}`,
-    );
-    console.info(`[GF-AI] Modelo preferido: ${DEFAULT_MODEL}`);
   });
   return server;
 }
