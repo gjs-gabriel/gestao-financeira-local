@@ -66,10 +66,20 @@ export function createServer() {
         },
       });
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       runtimeLog("request_error", {
         error: e instanceof Error ? e.name : "error",
+        message: msg,
       });
-      sendJson(res, 500, { error: "internal_error" }, req);
+      if (
+        msg === "invalid_json" ||
+        msg === "body_too_large" ||
+        msg === "body_invalid"
+      ) {
+        sendJson(res, 400, { error: msg }, req);
+        return;
+      }
+      sendJson(res, 500, { error: "internal_error", detail: msg }, req);
     }
   });
 

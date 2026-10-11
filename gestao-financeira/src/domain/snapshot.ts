@@ -17,6 +17,7 @@ import {
   type OneTimeExpense,
   type OneTimeIncome,
   type RecurringExpense,
+  type OpenFinanceSyncState,
   type VaultSnapshot,
   type WithInstitution,
 } from "./types";
@@ -267,7 +268,37 @@ function mergeInstitutions(
   return [...byId.values()];
 }
 
-/** Valida e migra snapshot (schema 1–5 → atual). */
+function parseOpenFinance(raw: unknown): OpenFinanceSyncState | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Partial<OpenFinanceSyncState>;
+  if (o.provider !== "pluggy") return undefined;
+  const itemIds = Array.isArray(o.itemIds)
+    ? o.itemIds.filter((id): id is string => typeof id === "string")
+    : [];
+  const maps = o.idMaps && typeof o.idMaps === "object" ? o.idMaps : undefined;
+  return {
+    provider: "pluggy",
+    itemIds,
+    lastSyncedAt:
+      typeof o.lastSyncedAt === "string" ? o.lastSyncedAt : undefined,
+    idMaps: {
+      accounts:
+        maps?.accounts && typeof maps.accounts === "object"
+          ? { ...maps.accounts }
+          : {},
+      creditCards:
+        maps?.creditCards && typeof maps.creditCards === "object"
+          ? { ...maps.creditCards }
+          : {},
+      investments:
+        maps?.investments && typeof maps.investments === "object"
+          ? { ...maps.investments }
+          : {},
+    },
+  };
+}
+
+/** Valida e migra snapshot (schema 1–6 → atual). */
 export function parseSnapshot(raw: unknown): VaultSnapshot {
   if (!raw || typeof raw !== "object") {
     throw new Error("Snapshot inválido");
@@ -275,12 +306,13 @@ export function parseSnapshot(raw: unknown): VaultSnapshot {
   const s = raw as Partial<VaultSnapshot> & {
     customInstitutions?: Institution[];
   };
+  const schemaVersion = Number(s.schemaVersion);
+  // Aceita 1…atual e até +2 (builds mistos / HMR) para não travar o unlock
+  // com "PIN incorreto" quando o ciphertext ainda abre normalmente.
   if (
-    s.schemaVersion !== 1 &&
-    s.schemaVersion !== 2 &&
-    s.schemaVersion !== 3 &&
-    s.schemaVersion !== 4 &&
-    s.schemaVersion !== 5
+    !Number.isInteger(schemaVersion) ||
+    schemaVersion < 1 ||
+    schemaVersion > SNAPSHOT_SCHEMA_VERSION + 2
   ) {
     throw new Error(
       `Versão de schema não suportada: ${String(s.schemaVersion)}`,
@@ -370,5 +402,8 @@ export function parseSnapshot(raw: unknown): VaultSnapshot {
     statementSummaries: Array.isArray(s.statementSummaries)
       ? s.statementSummaries
       : [],
+    openFinance: parseOpenFinance(
+      (s as { openFinance?: unknown }).openFinance,
+    ),
   };
 }

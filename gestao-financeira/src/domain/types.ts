@@ -22,8 +22,21 @@ import type { Budget, CategorizationRule, WealthSnapshot } from "./v15-types";
  *
  * Schema 4 introduz o ledger (Account + Transaction).
  * Schema 5: histórico de posições, aliases e metadados de documentos importados.
+ * Schema 6: estado Open Finance (Pluggy) no snapshot cifrado.
  * Listas legadas (incomes, oneTimeExpenses, …) permanecem até a Fase 2.
  */
+
+/** Estado de sincronização Open Finance persistido no .gfin. */
+export interface OpenFinanceSyncState {
+  provider: "pluggy";
+  itemIds: string[];
+  lastSyncedAt?: string;
+  idMaps: {
+    accounts: Record<string, string>;
+    creditCards: Record<string, string>;
+    investments: Record<string, string>;
+  };
+}
 
 export type IncomeType = "salary" | "vr" | "va" | "other";
 
@@ -191,10 +204,11 @@ export interface VaultSnapshot {
   /**
    * Versão do schema do snapshot.
    * 1 = MVP; 2 = instituições; 3 = parcelas; 4 = ledger;
-   * 5 = histórico de posições / aliases / documentos importados.
-   * parseSnapshot aceita 1–5 e normaliza para a versão atual.
+   * 5 = histórico de posições / aliases / documentos importados;
+   * 6 = Open Finance (Pluggy) — itemIds + lastSyncedAt + idMaps.
+   * parseSnapshot aceita 1–6 e normaliza para a versão atual.
    */
-  schemaVersion: 1 | 2 | 3 | 4 | 5;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6;
   updatedAt: string;
   /** --- Legado (UI atual / projeção) --- */
   incomes: Income[];
@@ -224,6 +238,8 @@ export interface VaultSnapshot {
   investmentAliases: InvestmentAlias[];
   importedDocuments: ImportedDocumentMeta[];
   statementSummaries: StatementSummary[];
+  /** Sync Open Finance (Pluggy) — opcional. */
+  openFinance?: OpenFinanceSyncState;
 }
 
 /** Envelope versionado do arquivo .gfin — contrato estável web ↔ app futuro. */
@@ -247,5 +263,5 @@ export interface GfinEnvelope {
 
 export const GFIN_FORMAT_VERSION = 1 as const;
 /** Schema atual do snapshot em claro (dentro do envelope). */
-export const SNAPSHOT_SCHEMA_VERSION = 5 as const;
+export const SNAPSHOT_SCHEMA_VERSION = 6 as const;
 export const PBKDF2_ITERATIONS = 310_000;

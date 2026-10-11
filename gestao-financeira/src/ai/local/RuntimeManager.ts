@@ -196,12 +196,12 @@ export class RuntimeManager {
       this.emit({
         phase: "unavailable",
         message:
-          "Ollama não encontrado. Instale em https://ollama.com/download e rode o modelo.",
+          "Serviço Ollama não responde em 127.0.0.1:11434. Se já estiver instalado, reinicie o app Ollama (ou use Gerenciador IA → Iniciar Ollama).",
         status,
-        error: "ollama_missing",
+        error: "ollama_unreachable",
       });
       throw new Error(
-        "Ollama não encontrado. Instale o Ollama e baixe o modelo antes de continuar.",
+        "Ollama instalado, mas a API não responde na porta 11434. Abra/reinicie o Ollama ou use Iniciar Ollama no Gerenciador da IA.",
       );
     }
 

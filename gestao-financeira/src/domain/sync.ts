@@ -138,7 +138,11 @@ export function removeRecurringExpenseSynced(
 export function upsertOneTimeExpenseSynced(
   snapshot: VaultSnapshot,
   item: OneTimeExpense,
-  opts?: { source?: Transaction["source"]; accountId?: string },
+  opts?: {
+    source?: Transaction["source"];
+    accountId?: string;
+    importHash?: string;
+  },
 ): VaultSnapshot {
   let next = ensureAccounts(snapshot);
   const accountId = opts?.accountId ?? defaultAccountId(next);
@@ -155,6 +159,7 @@ export function upsertOneTimeExpenseSynced(
     institutionOther: item.institutionOther,
     status: "confirmed",
     source: opts?.source ?? "manual",
+    importHash: opts?.importHash,
     notes: item.notes,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -174,7 +179,11 @@ export function removeOneTimeExpenseSynced(
 export function upsertOneTimeIncomeSynced(
   snapshot: VaultSnapshot,
   item: OneTimeIncome,
-  opts?: { source?: Transaction["source"]; accountId?: string },
+  opts?: {
+    source?: Transaction["source"];
+    accountId?: string;
+    importHash?: string;
+  },
 ): VaultSnapshot {
   let next = ensureAccounts(snapshot);
   const accountId = opts?.accountId ?? defaultAccountId(next);
@@ -191,6 +200,7 @@ export function upsertOneTimeIncomeSynced(
     institutionOther: item.institutionOther,
     status: "confirmed",
     source: opts?.source ?? "manual",
+    importHash: opts?.importHash,
     notes: item.notes,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,

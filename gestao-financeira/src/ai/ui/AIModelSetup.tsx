@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AIStatusBadge } from "./AIStatus";
 import { useAI } from "./AIProvider";
@@ -108,6 +109,16 @@ export function AIModelSetup({ compact = false }: { compact?: boolean }) {
             </li>
             <li>Volte aqui e clique em Conectar</li>
           </ol>
+          <p className="text-xs text-muted-foreground pt-1">
+            Checklist completo e botão para iniciar o runtime:{" "}
+            <Link
+              href="/ia"
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              Gerenciador da IA
+            </Link>
+            .
+          </p>
         </div>
       ) : null}
 

@@ -249,13 +249,40 @@ export function ProgressBar({
   );
 }
 
+/**
+ * Interpreta valor monetário digitado.
+ * Aceita BR (1.234,56 / 999,90) e decimal com ponto (999.9) — sem tratar
+ * o ponto decimal como milhar (bug que transformava 999.9 → 9999).
+ */
 export function parseMoneyInput(raw: string): number {
-  const cleaned = raw
-    .replace(/R\$\s?/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".")
-    .trim();
-  const n = Number(cleaned);
+  const s = raw.replace(/R\$\s?/gi, "").replace(/\s/g, "").trim();
+  if (!s) return 0;
+
+  let normalized: string;
+  if (s.includes(",")) {
+    // 1.234,56 ou 999,90
+    normalized = s.replace(/\./g, "").replace(",", ".");
+  } else if (s.includes(".")) {
+    const last = s.slice(s.lastIndexOf(".") + 1);
+    const singleDot = s.indexOf(".") === s.lastIndexOf(".");
+    if (singleDot && /^\d{1,2}$/.test(last)) {
+      // 999.9 / 10.50 — ponto decimal
+      normalized = s;
+    } else {
+      // 1.234 ou 1.234.567 — milhar BR
+      normalized = s.replace(/\./g, "");
+    }
+  } else {
+    normalized = s;
+  }
+
+  const n = Number(normalized);
   if (Number.isNaN(n)) return 0;
   return Math.round(n * 100) / 100;
+}
+
+/** Formata número para campos de input (vírgula decimal). */
+export function formatMoneyInput(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  return (Math.round(value * 100) / 100).toString().replace(".", ",");
 }

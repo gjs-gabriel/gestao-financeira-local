@@ -119,6 +119,9 @@ export function AdminPage() {
         <AlertDescription>
           Isolamento: edição altera só metadados públicos. Exclusão remove o
           arquivo cifrado sem carregar o plaintext nem pedir o PIN do usuário.
+          Sync Open Finance (Pluggy) fica em{" "}
+          <strong>Cofre</strong> do usuário desbloqueado — o admin não acessa
+          o plaintext financeiro.
         </AlertDescription>
       </Alert>
 

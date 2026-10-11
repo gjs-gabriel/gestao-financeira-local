@@ -128,7 +128,40 @@ describe("KDF / .gfin validation", () => {
     env.ciphertext = Buffer.from("not-valid-gcm-payload-xxxxxx").toString(
       "base64",
     );
-    await assert.rejects(() => decryptEnvelope(env, "4242"));
+    await assert.rejects(
+      () => decryptEnvelope(env, "4242"),
+      /PIN incorreto ou cofre corrompido/,
+    );
+  });
+
+  it("PIN com espaços nas pontas ainda abre", async () => {
+    const snap = createEmptySnapshot();
+    const env = await encryptSnapshot(snap, "4242");
+    const out = await decryptEnvelope(env, "  4242  ");
+    assert.equal(out.schemaVersion, snap.schemaVersion);
+  });
+
+  it("não mascara falha de schema como PIN incorreto", async () => {
+    const snap = createEmptySnapshot();
+    const { encryptSnapshot: enc } = await import("@/adapters/crypto");
+    const broken = { ...snap, schemaVersion: 99 as never };
+    const env2 = await enc(broken as typeof snap, "4242");
+    await assert.rejects(
+      () => decryptEnvelope(env2, "4242"),
+      /PIN correto, mas o cofre não pôde ser lido/,
+    );
+  });
+
+  it("uma única tentativa: PIN errado não tenta outras chaves", async () => {
+    const snap = createEmptySnapshot();
+    const env = await encryptSnapshot(snap, "4242");
+    await assert.rejects(
+      () => decryptEnvelope(env, "0000"),
+      /PIN incorreto ou cofre corrompido/,
+    );
+    // Confirma que o PIN correto ainda é a única via
+    const out = await decryptEnvelope(env, "4242");
+    assert.ok(out);
   });
 });
 

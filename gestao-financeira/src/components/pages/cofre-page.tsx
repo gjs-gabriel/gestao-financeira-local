@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Download, Upload, Lock, Trash2, KeyRound, UserRound } from "lucide-react";
+import {
+  Bot,
+  Download,
+  Upload,
+  Lock,
+  Trash2,
+  KeyRound,
+  UserRound,
+  FileUp,
+} from "lucide-react";
 import { useVault } from "@/lib/vault-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/ui-helpers";
-import { AIModelSetup } from "@/ai/ui/AIModelSetup";
 import type { ImportVaultMode } from "@/lib/vault-context";
 import type { ProfileAvatar } from "@/adapters";
 
@@ -190,7 +198,7 @@ export function CofrePage() {
     <div>
       <PageHeader
         title="Cofre"
-        description="Perfil local, PIN e arquivo .gfin. Cada usuário tem um cofre independente."
+        description="Perfil, PIN e arquivo .gfin deste usuário. Integrações (bancos e IA) ficam em Configuração."
       />
 
       <div className="space-y-4">
@@ -333,6 +341,34 @@ export function CofrePage() {
             </Link>
           </p>
         </section>
+
+        {activeProfile.kind !== "admin" ? (
+          <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+            <h2 className="font-heading text-lg font-medium">
+              Outras configurações
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bancos e assistente local ficam fora do cofre para não misturar
+              segurança do .gfin com integrações.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/importar"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium hover:bg-muted"
+              >
+                <FileUp className="size-4" />
+                Importar / Open Finance
+              </Link>
+              <Link
+                href="/ia"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium hover:bg-muted"
+              >
+                <Bot className="size-4" />
+                Gerenciador IA
+              </Link>
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
           <h2 className="font-heading text-lg font-medium text-destructive">
@@ -536,20 +572,6 @@ export function CofrePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <section className="mt-10 border-t border-border/40 pt-8">
-        <h2 className="mb-1 flex items-center gap-2 text-base font-medium">
-          <span className="text-primary" aria-hidden>
-            ✦
-          </span>
-          IA local
-        </h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          O modelo roda neste dispositivo. Nada do cofre é enviado a APIs
-          externas.
-        </p>
-        <AIModelSetup />
-      </section>
     </div>
   );
 }

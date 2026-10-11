@@ -13,7 +13,7 @@
     "package:windows": "node scripts/package-windows.mjs",
     "build:launcher": "npm run build && npm run package:windows",
     "desktop:host": "node desktop/host.mjs",
-    "test:domain": "npx tsx --test src/domain/calculations.test.ts src/domain/chart-series.test.ts src/domain/ledger.test.ts src/domain/sync.test.ts src/domain/v15.test.ts src/domain/v2.test.ts src/domain/v3.test.ts src/domain/demo-snapshot.test.ts src/domain/marina-demo.test.ts src/adapters/profiles.test.ts src/adapters/admin.test.ts src/adapters/profile-fields.test.ts",
+    "test:domain": "npx tsx --test src/domain/calculations.test.ts src/domain/chart-series.test.ts src/domain/ledger.test.ts src/domain/sync.test.ts src/domain/v15.test.ts src/domain/v2.test.ts src/domain/v3.test.ts src/domain/demo-snapshot.test.ts src/domain/marina-demo.test.ts src/domain/purchase-simulation.test.ts src/domain/mappers/pluggy-mapper.test.ts src/adapters/profiles.test.ts src/adapters/admin.test.ts src/adapters/profile-fields.test.ts",
     "test:ai": "npx tsx --test src/ai/finance/ai-finance.test.ts src/ai/local/local-ai.test.ts src/security/security.test.ts",
     "test:import": "npx tsx --test src/import/clips.test.ts src/import/br-document.test.ts src/import/reconcile.test.ts src/import/next-steps.test.ts",
     "test": "npm run test:domain && npm run test:ai && npm run test:import"
