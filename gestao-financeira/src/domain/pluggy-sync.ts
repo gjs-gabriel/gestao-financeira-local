@@ -5,6 +5,10 @@ import {
   mapPluggyBundle,
   type MappedPluggyBundle,
 } from "./mappers/pluggy-mapper";
+import {
+  buildPluggySyncReport,
+  type PluggySyncReport,
+} from "./pluggy-sync-report";
 import { touchSnapshot, upsertEntity } from "./snapshot";
 import {
   upsertAccount,
@@ -17,6 +21,9 @@ import type { OpenFinanceSyncState, VaultSnapshot } from "./types";
 import { recordWealthSnapshot } from "./wealth";
 
 export const PLUGGY_SYNC_TTL_MS = 24 * 60 * 60 * 1000;
+
+export type { PluggyLogLevel, PluggyLogLine, PluggySyncReport } from "./pluggy-sync-report";
+export { buildPluggySyncReport, pluggyErrorReport } from "./pluggy-sync-report";
 
 export interface ApplyPluggyOptions {
   itemIds: string[];
@@ -34,6 +41,7 @@ export interface PluggySyncAppliedResult {
   skipped: false;
   snapshot: VaultSnapshot;
   fetchedAt: string;
+  report: PluggySyncReport;
 }
 
 export type PluggySyncResult = PluggySyncSkipResult | PluggySyncAppliedResult;
@@ -175,20 +183,39 @@ export function applyPluggyMappedBundle(
   return recordWealthSnapshot(next, new Date(opts.fetchedAt));
 }
 
+export interface MergePluggyFetchResult {
+  snapshot: VaultSnapshot;
+  report: PluggySyncReport;
+}
+
 /** Mapeia + aplica um fetch bundle da API. */
 export function mergePluggyFetchBundle(
   snapshot: VaultSnapshot,
   bundle: PluggyFetchBundle,
   itemIds?: string[],
 ): VaultSnapshot {
+  return mergePluggyFetchBundleDetailed(snapshot, bundle, itemIds).snapshot;
+}
+
+/** Como mergePluggyFetchBundle, mas devolve também o relatório de sync. */
+export function mergePluggyFetchBundleDetailed(
+  snapshot: VaultSnapshot,
+  bundle: PluggyFetchBundle,
+  itemIds?: string[],
+): MergePluggyFetchResult {
+  const resolvedIds =
+    itemIds ??
+    snapshot.openFinance?.itemIds ??
+    bundle.items.map((i) => i.itemId);
   const mapped = mapPluggyBundle(bundle, bundle.fetchedAt);
-  return applyPluggyMappedBundle(snapshot, mapped, {
-    itemIds:
-      itemIds ??
-      snapshot.openFinance?.itemIds ??
-      bundle.items.map((i) => i.itemId),
+  const next = applyPluggyMappedBundle(snapshot, mapped, {
+    itemIds: resolvedIds,
     fetchedAt: bundle.fetchedAt,
   });
+  return {
+    snapshot: next,
+    report: buildPluggySyncReport(bundle, mapped, resolvedIds),
+  };
 }
 
 export function resolvePluggyItemIds(
@@ -238,10 +265,15 @@ export function applyPluggyFetchWithTtl(
       snapshot,
     };
   }
-  const next = mergePluggyFetchBundle(snapshot, bundle, opts?.itemIds);
+  const { snapshot: next, report } = mergePluggyFetchBundleDetailed(
+    snapshot,
+    bundle,
+    opts?.itemIds,
+  );
   return {
     skipped: false,
     snapshot: next,
     fetchedAt: bundle.fetchedAt,
+    report,
   };
 }

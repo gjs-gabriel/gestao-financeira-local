@@ -57,6 +57,7 @@ export function GastosPage() {
     amount: "",
     frequency: "monthly" as RecurrenceFrequency,
     categoryId: "",
+    creditCardId: "",
     notes: "",
     institutionId: undefined as string | undefined,
     institutionOther: undefined as string | undefined,
@@ -71,6 +72,7 @@ export function GastosPage() {
     amount: "",
     date: new Date().toISOString().slice(0, 10),
     categoryId: "",
+    creditCardId: "",
     notes: "",
     institutionId: undefined as string | undefined,
     institutionOther: undefined as string | undefined,
@@ -85,6 +87,7 @@ export function GastosPage() {
     totalInstallments: "2",
     startDate: new Date().toISOString().slice(0, 10),
     categoryId: "",
+    creditCardId: "",
     notes: "",
     institutionId: undefined as string | undefined,
     institutionOther: undefined as string | undefined,
@@ -99,10 +102,38 @@ export function GastosPage() {
   const expenseCats = snapshot.categories.filter(
     (c) => c.kind === "expense" || c.kind === "general",
   );
+  const cards = (snapshot.creditCards ?? []).filter(
+    (c) => c.status !== "archived",
+  );
 
   function catName(id?: string) {
     if (!id) return "Sem categoria";
     return snapshot!.categories.find((c) => c.id === id)?.name ?? "Categoria";
+  }
+
+  function cardName(id?: string) {
+    if (!id) return null;
+    return snapshot!.creditCards?.find((c) => c.id === id)?.name ?? "Cartão";
+  }
+
+  function fundingLabel(creditCardId?: string) {
+    const name = cardName(creditCardId);
+    return name ? `Fatura · ${name}` : "Conta";
+  }
+
+  function categorySelectLabel(value: string | null) {
+    if (!value || value === "_none") return "Sem categoria";
+    return catName(value);
+  }
+
+  function frequencySelectLabel(value: string | null) {
+    if (!value) return "";
+    return FREQUENCY_LABELS[value as RecurrenceFrequency] ?? value;
+  }
+
+  function cardSelectLabel(value: string | null) {
+    if (!value || value === "_none") return "Conta (débito / Pix)";
+    return `Cartão · ${cardName(value) ?? value}`;
   }
 
   async function saveRecurring() {
@@ -121,6 +152,7 @@ export function GastosPage() {
         amount,
         frequency: recForm.frequency,
         categoryId: recForm.categoryId || undefined,
+        creditCardId: recForm.creditCardId || undefined,
         notes: recForm.notes.trim() || undefined,
         institutionId: recForm.institutionId,
         institutionOther: recForm.institutionOther,
@@ -179,6 +211,7 @@ export function GastosPage() {
         totalInstallments: count,
         startDate: pxForm.startDate,
         categoryId: pxForm.categoryId || undefined,
+        creditCardId: pxForm.creditCardId || undefined,
         notes: pxForm.notes.trim() || undefined,
         institutionId: pxForm.institutionId,
         institutionOther: pxForm.institutionOther,
@@ -210,6 +243,7 @@ export function GastosPage() {
         amount,
         date: otForm.date,
         categoryId: otForm.categoryId || undefined,
+        creditCardId: otForm.creditCardId || undefined,
         notes: otForm.notes.trim() || undefined,
         institutionId: otForm.institutionId,
         institutionOther: otForm.institutionOther,
@@ -249,6 +283,7 @@ export function GastosPage() {
                   amount: "",
                   frequency: "monthly",
                   categoryId: "",
+                  creditCardId: "",
                   notes: "",
                   institutionId: undefined,
                   institutionOther: undefined,
@@ -271,7 +306,7 @@ export function GastosPage() {
                 <EntityRow
                   key={item.id}
                   title={item.name}
-                  subtitle={`${FREQUENCY_LABELS[item.frequency]} · ${catName(item.categoryId)} · ~${formatBrl(normalizeToMonthly(item.amount, item.frequency))}/mês`}
+                  subtitle={`${FREQUENCY_LABELS[item.frequency]} · ${catName(item.categoryId)} · ${fundingLabel(item.creditCardId)} · ~${formatBrl(normalizeToMonthly(item.amount, item.frequency))}/mês`}
                   amount={item.amount}
                   badge={
                     <InstitutionBadge
@@ -287,6 +322,7 @@ export function GastosPage() {
                       amount: String(item.amount).replace(".", ","),
                       frequency: item.frequency,
                       categoryId: item.categoryId ?? "",
+                      creditCardId: item.creditCardId ?? "",
                       notes: item.notes ?? "",
                       institutionId: item.institutionId,
                       institutionOther: item.institutionOther,
@@ -311,6 +347,7 @@ export function GastosPage() {
                   amount: "",
                   date: new Date().toISOString().slice(0, 10),
                   categoryId: "",
+                  creditCardId: "",
                   notes: "",
                   institutionId: undefined,
                   institutionOther: undefined,
@@ -335,7 +372,7 @@ export function GastosPage() {
                   <EntityRow
                     key={item.id}
                     title={item.name}
-                    subtitle={`${item.date} · ${catName(item.categoryId)}`}
+                    subtitle={`${item.date} · ${catName(item.categoryId)} · ${fundingLabel(item.creditCardId)}`}
                     amount={item.amount}
                     badge={
                       <InstitutionBadge
@@ -351,6 +388,7 @@ export function GastosPage() {
                         amount: String(item.amount).replace(".", ","),
                         date: item.date,
                         categoryId: item.categoryId ?? "",
+                        creditCardId: item.creditCardId ?? "",
                         notes: item.notes ?? "",
                         institutionId: item.institutionId,
                         institutionOther: item.institutionOther,
@@ -376,6 +414,7 @@ export function GastosPage() {
                   totalInstallments: "2",
                   startDate: new Date().toISOString().slice(0, 10),
                   categoryId: "",
+                  creditCardId: "",
                   notes: "",
                   institutionId: undefined,
                   institutionOther: undefined,
@@ -398,7 +437,7 @@ export function GastosPage() {
                 <EntityRow
                   key={item.id}
                   title={item.name}
-                  subtitle={installmentSubtitle(item)}
+                  subtitle={`${installmentSubtitle(item)} · ${fundingLabel(item.creditCardId)}`}
                   amount={item.installmentAmount}
                   badge={
                     <InstitutionBadge
@@ -415,6 +454,7 @@ export function GastosPage() {
                       totalInstallments: String(item.totalInstallments),
                       startDate: item.startDate,
                       categoryId: item.categoryId ?? "",
+                      creditCardId: item.creditCardId ?? "",
                       notes: item.notes ?? "",
                       institutionId: item.institutionId,
                       institutionOther: item.institutionOther,
@@ -470,8 +510,10 @@ export function GastosPage() {
                   });
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => frequencySelectLabel(v)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(
@@ -496,8 +538,10 @@ export function GastosPage() {
                   });
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem categoria" />
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => categorySelectLabel(v)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Sem categoria</SelectItem>
@@ -508,6 +552,37 @@ export function GastosPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pago por</Label>
+              <Select
+                value={recForm.creditCardId || "_none"}
+                onValueChange={(v) => {
+                  if (v == null) return;
+                  setRecForm({
+                    ...recForm,
+                    creditCardId: v === "_none" ? "" : v,
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => cardSelectLabel(v)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Conta (débito / Pix)</SelectItem>
+                  {cards.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      Cartão · {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                No cartão, o valor entra na fatura — não como saída direta da
+                conta.
+              </p>
             </div>
             <InstitutionSelect
               institutions={snapshot.institutions}
@@ -574,8 +649,10 @@ export function GastosPage() {
                   });
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => categorySelectLabel(v)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Sem categoria</SelectItem>
@@ -586,6 +663,37 @@ export function GastosPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pago por</Label>
+              <Select
+                value={otForm.creditCardId || "_none"}
+                onValueChange={(v) => {
+                  if (v == null) return;
+                  setOtForm({
+                    ...otForm,
+                    creditCardId: v === "_none" ? "" : v,
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => cardSelectLabel(v)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Conta (débito / Pix)</SelectItem>
+                  {cards.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      Cartão · {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                No cartão, conta como compra na fatura — não como débito na
+                conta.
+              </p>
             </div>
             <InstitutionSelect
               institutions={snapshot.institutions}
@@ -665,8 +773,10 @@ export function GastosPage() {
                   });
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => categorySelectLabel(v)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Sem categoria</SelectItem>
@@ -677,6 +787,36 @@ export function GastosPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pago por</Label>
+              <Select
+                value={pxForm.creditCardId || "_none"}
+                onValueChange={(v) => {
+                  if (v == null) return;
+                  setPxForm({
+                    ...pxForm,
+                    creditCardId: v === "_none" ? "" : v,
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => cardSelectLabel(v)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Conta (débito / Pix)</SelectItem>
+                  {cards.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      Cartão · {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                No cartão, as parcelas entram na fatura do cartão escolhido.
+              </p>
             </div>
             <InstitutionSelect
               institutions={snapshot.institutions}

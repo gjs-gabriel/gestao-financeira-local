@@ -3,6 +3,7 @@ import {
   type PluggyAccount,
   type PluggyBill,
   type PluggyFetchBundle,
+  type PluggyFetchWarning,
   type PluggyInvestment,
   type PluggyItemBundle,
   type PluggyLoan,
@@ -29,8 +30,24 @@ export interface ListTransactionsParams {
   pageSize?: number;
 }
 
+export interface CreateConnectTokenParams {
+  /** Identificador do seu usuário (opcional; vai em options.clientUserId). */
+  clientUserId?: string;
+  /** Para atualizar uma conexão existente no widget. */
+  itemId?: string;
+  /** HTTPS público do receptor (ngrok etc.) — options.webhookUrl. */
+  webhookUrl?: string;
+}
+
+export interface PluggyConnectToken {
+  accessToken: string;
+}
+
 export interface PluggyClient {
   authenticate(): Promise<string>;
+  createConnectToken(
+    params?: CreateConnectTokenParams,
+  ): Promise<PluggyConnectToken>;
   listAccounts(itemId: string): Promise<PluggyAccount[]>;
   listTransactions(params: ListTransactionsParams): Promise<PluggyTransaction[]>;
   listAllTransactions(
@@ -64,6 +81,24 @@ function pageResults<T>(payload: unknown): PluggyPage<T> {
     page: typeof obj.page === "number" ? obj.page : 1,
     results,
   };
+}
+
+/** Resposta de GET /v2/transactions (cursor). */
+function cursorPageResults<T>(payload: unknown): {
+  results: T[];
+  next: string | null;
+} {
+  const obj = asRecord(payload);
+  const results = Array.isArray(obj?.results) ? (obj!.results as T[]) : [];
+  const next = typeof obj?.next === "string" && obj.next.length > 0 ? obj.next : null;
+  return { results, next };
+}
+
+function v2TransactionsPath(nextCursor: string | null | undefined): string {
+  if (!nextCursor) return "/v2/transactions";
+  if (nextCursor.startsWith("/v2/transactions")) return nextCursor;
+  if (nextCursor.startsWith("?")) return `/v2/transactions${nextCursor}`;
+  return `/v2/transactions?${nextCursor}`;
 }
 
 export function createPluggyClient(options: PluggyClientOptions): PluggyClient {
@@ -148,6 +183,38 @@ export function createPluggyClient(options: PluggyClientOptions): PluggyClient {
     return body as T;
   }
 
+  async function createConnectToken(
+    params?: CreateConnectTokenParams,
+  ): Promise<PluggyConnectToken> {
+    const body: Record<string, unknown> = {};
+    if (params?.itemId?.trim()) {
+      body.itemId = params.itemId.trim();
+    }
+    const options: Record<string, string> = {};
+    if (params?.clientUserId?.trim()) {
+      options.clientUserId = params.clientUserId.trim();
+    }
+    if (params?.webhookUrl?.trim()) {
+      options.webhookUrl = params.webhookUrl.trim();
+    }
+    if (Object.keys(options).length > 0) {
+      body.options = options;
+    }
+
+    const payload = await request<unknown>("/connect_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const rec = asRecord(payload);
+    const accessToken =
+      typeof rec?.accessToken === "string" ? rec.accessToken : null;
+    if (!accessToken) {
+      throw new PluggyHttpError("Resposta de connect_token sem accessToken", 502);
+    }
+    return { accessToken };
+  }
+
   async function listAccounts(itemId: string): Promise<PluggyAccount[]> {
     const page = pageResults<PluggyAccount>(
       await request<unknown>("/accounts", { query: { itemId } }),
@@ -158,18 +225,15 @@ export function createPluggyClient(options: PluggyClientOptions): PluggyClient {
   async function listTransactions(
     params: ListTransactionsParams,
   ): Promise<PluggyTransaction[]> {
-    const page = pageResults<PluggyTransaction>(
-      await request<unknown>("/transactions", {
-        query: {
-          accountId: params.accountId,
-          from: params.from,
-          to: params.to,
-          page: params.page ?? 1,
-          pageSize: params.pageSize ?? 500,
-        },
-      }),
-    );
-    return page.results;
+    // GET /transactions (paginado por page) retorna 410 — usar v2/cursor.
+    const payload = await request<unknown>("/v2/transactions", {
+      query: {
+        accountId: params.accountId,
+        dateFrom: params.from,
+        dateTo: params.to,
+      },
+    });
+    return cursorPageResults<PluggyTransaction>(payload).results;
   }
 
   async function listAllTransactions(
@@ -177,23 +241,33 @@ export function createPluggyClient(options: PluggyClientOptions): PluggyClient {
     opts?: { from?: string; to?: string },
   ): Promise<PluggyTransaction[]> {
     const all: PluggyTransaction[] = [];
-    let page = 1;
-    let totalPages = 1;
-    do {
-      const payload = await request<unknown>("/transactions", {
-        query: {
-          accountId,
-          from: opts?.from,
-          to: opts?.to,
-          page,
-          pageSize: 500,
-        },
-      });
-      const parsed = pageResults<PluggyTransaction>(payload);
+    let next: string | null = null;
+    let first = true;
+    let guard = 0;
+
+    while (guard < 40) {
+      guard += 1;
+      let payload: unknown;
+      if (first) {
+        first = false;
+        payload = await request<unknown>("/v2/transactions", {
+          query: {
+            accountId,
+            dateFrom: opts?.from,
+            dateTo: opts?.to,
+          },
+        });
+      } else if (next) {
+        payload = await request<unknown>(v2TransactionsPath(next));
+      } else {
+        break;
+      }
+
+      const parsed = cursorPageResults<PluggyTransaction>(payload);
       all.push(...parsed.results);
-      totalPages = Math.max(1, parsed.totalPages);
-      page += 1;
-    } while (page <= totalPages && page <= 40);
+      next = parsed.next;
+      if (!next) break;
+    }
     return all;
   }
 
@@ -235,17 +309,105 @@ export function createPluggyClient(options: PluggyClientOptions): PluggyClient {
   async function fetchItemsBundle(itemIds: string[]): Promise<PluggyFetchBundle> {
     const unique = [...new Set(itemIds.map((id) => id.trim()).filter(Boolean))];
     const items: PluggyItemBundle[] = [];
+    const warnings: PluggyFetchWarning[] = [];
 
     for (const itemId of unique) {
       const accounts = await listAccounts(itemId);
       const transactions: PluggyTransaction[] = [];
       const bills: PluggyBill[] = [];
 
+      if (accounts.length === 0) {
+        warnings.push({
+          level: "warn",
+          itemId,
+          message: "Nenhuma conta retornada para este itemId.",
+        });
+      }
+
       for (const account of accounts) {
-        const txs = await listAllTransactions(account.id);
-        transactions.push(...txs);
+        try {
+          const txs = await listAllTransactions(account.id);
+          transactions.push(...txs);
+          if (txs.length === 0) {
+            warnings.push({
+              level: "info",
+              itemId,
+              accountId: account.id,
+              accountName: account.name,
+              message: `Extrato vazio em “${account.name}” (${account.type}).`,
+            });
+          }
+        } catch (err) {
+          if (
+            err instanceof PluggyHttpError &&
+            (err.status === 404 || err.status === 400)
+          ) {
+            warnings.push({
+              level: "warn",
+              itemId,
+              accountId: account.id,
+              accountName: account.name,
+              code: err.code ?? String(err.status),
+              message: `Extrato não disponível para “${account.name}”: ${err.message}`,
+            });
+            continue;
+          }
+          throw err;
+        }
         if (account.type === "CREDIT") {
           bills.push(...(await listBills(account.id)));
+        }
+      }
+
+      let investments: PluggyInvestment[] = [];
+      try {
+        investments = await listInvestments(itemId);
+        if (investments.length === 0) {
+          warnings.push({
+            level: "info",
+            itemId,
+            message: "Nenhum investimento retornado para este item.",
+          });
+        }
+      } catch (err) {
+        if (
+          err instanceof PluggyHttpError &&
+          (err.status === 404 || err.status === 400)
+        ) {
+          warnings.push({
+            level: "warn",
+            itemId,
+            code: err.code ?? String(err.status),
+            message: `Investimentos não disponíveis: ${err.message}`,
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      let loans: PluggyLoan[] = [];
+      try {
+        loans = await listLoans(itemId);
+        if (loans.length === 0) {
+          warnings.push({
+            level: "info",
+            itemId,
+            message: "Nenhum empréstimo (loans) retornado.",
+          });
+        }
+      } catch (err) {
+        if (
+          err instanceof PluggyHttpError &&
+          (err.status === 404 || err.status === 400)
+        ) {
+          warnings.push({
+            level: "warn",
+            itemId,
+            code: err.code ?? String(err.status),
+            message: `Empréstimos não disponíveis: ${err.message}`,
+          });
+        } else {
+          throw err;
         }
       }
 
@@ -253,20 +415,22 @@ export function createPluggyClient(options: PluggyClientOptions): PluggyClient {
         itemId,
         accounts,
         transactions,
-        investments: await listInvestments(itemId),
+        investments,
         bills,
-        loans: await listLoans(itemId),
+        loans,
       });
     }
 
     return {
       fetchedAt: new Date().toISOString(),
       items,
+      warnings,
     };
   }
 
   return {
     authenticate,
+    createConnectToken,
     listAccounts,
     listTransactions,
     listAllTransactions,

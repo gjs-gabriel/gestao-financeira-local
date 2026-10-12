@@ -162,6 +162,11 @@ interface VaultContextValue {
   /** Compat: setupPin do fluxo antigo → cria usuário pessoal vazio. */
   setupPin: (pin: string) => Promise<void>;
   resetLocalVault: () => Promise<void>;
+  /**
+   * Apaga todos os dados financeiros do usuário ativo e grava um cofre vazio.
+   * Mantém perfil, login e PIN. Exige o PIN atual.
+   */
+  clearVaultData: (pin: string) => Promise<void>;
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -950,6 +955,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setStatus(list.length > 0 ? "user_selection" : "no_users");
   }, [selectedProfile, deleteProfile]);
 
+  const clearVaultData = useCallback(
+    async (tryPin: string) => {
+      setError(null);
+      if (!selectedProfile || status !== "unlocked") {
+        throw new Error("Desbloqueie o cofre para limpar os dados");
+      }
+      const stored = await loadVaultEnvelope(selectedProfile.vaultId);
+      if (!stored) throw new Error("Cofre não encontrado");
+      const keyPin = canonicalizePin(tryPin);
+      await decryptEnvelope(stored, keyPin);
+      const empty = createEmptySnapshot();
+      await persistActive(selectedProfile, empty);
+    },
+    [selectedProfile, status, persistActive],
+  );
+
   const value = useMemo<VaultContextValue>(
     () => ({
       status,
@@ -989,6 +1010,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       importVault,
       setupPin,
       resetLocalVault,
+      clearVaultData,
     }),
     [
       status,
@@ -1025,6 +1047,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       importVault,
       setupPin,
       resetLocalVault,
+      clearVaultData,
     ],
   );
 

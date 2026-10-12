@@ -32,5 +32,6 @@ export * from "./chart-series";
 export * from "./purchase-simulation";
 export * from "./purchase-nl";
 export * from "./pluggy-sync";
+export * from "./pluggy-sync-report";
 export * from "./mappers/pluggy-category-map";
 export * from "./mappers/pluggy-mapper";

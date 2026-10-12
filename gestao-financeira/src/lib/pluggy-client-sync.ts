@@ -5,7 +5,7 @@
 
 import type { PluggyFetchBundle } from "@/infra/pluggy/types";
 import {
-  mergePluggyFetchBundle,
+  mergePluggyFetchBundleDetailed,
   resolvePluggyItemIds,
   shouldSkipPluggySync,
   type PluggySyncResult,
@@ -119,6 +119,52 @@ export async function fetchPluggyBundleFromProxy(
   return body as PluggyFetchBundle;
 }
 
+/**
+ * Consome a inbox de webhooks (item/created|updated|transactions/*).
+ * Retorna itemIds que pedem sync forçado — o cofre aplica no client.
+ */
+export async function consumePluggyWebhookInbox(
+  itemIdsForSession: string[],
+): Promise<{ pendingItemIds: string[] }> {
+  const unique = [
+    ...new Set(itemIdsForSession.map((id) => id.trim()).filter(Boolean)),
+  ];
+  if (unique.length === 0) return { pendingItemIds: [] };
+
+  let token = getPluggyProxyToken();
+  if (!token) {
+    token = await mintPluggyProxyToken(unique);
+  }
+
+  const doGet = (bearer: string) =>
+    fetch("/api/pluggy/webhook-inbox?consume=1", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${bearer}` },
+      cache: "no-store",
+    });
+
+  let res = await doGet(token);
+  if (res.status === 401) {
+    token = await mintPluggyProxyToken(unique);
+    res = await doGet(token);
+  }
+  if (!res.ok) {
+    return { pendingItemIds: [] };
+  }
+  const body: unknown = await res.json().catch(() => null);
+  const pending =
+    body &&
+    typeof body === "object" &&
+    Array.isArray((body as { pendingItemIds?: unknown }).pendingItemIds)
+      ? (
+          (body as { pendingItemIds: unknown[] }).pendingItemIds.filter(
+            (id): id is string => typeof id === "string",
+          ) as string[]
+        )
+      : [];
+  return { pendingItemIds: pending };
+}
+
 export async function syncPluggyIntoSnapshot(
   snapshot: VaultSnapshot,
   opts?: { force?: boolean; itemIds?: string[] },
@@ -142,10 +188,15 @@ export async function syncPluggyIntoSnapshot(
 
   await ensurePluggyProxySession(itemIds);
   const bundle = await fetchPluggyBundleFromProxy(itemIds);
-  const next = mergePluggyFetchBundle(snapshot, bundle, itemIds);
+  const { snapshot: next, report } = mergePluggyFetchBundleDetailed(
+    snapshot,
+    bundle,
+    itemIds,
+  );
   return {
     skipped: false,
     snapshot: next,
     fetchedAt: bundle.fetchedAt,
+    report,
   };
 }

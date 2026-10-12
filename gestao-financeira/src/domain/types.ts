@@ -122,6 +122,11 @@ export interface RecurringExpense extends WithInstitution {
   amount: number;
   frequency: RecurrenceFrequency;
   categoryId?: string;
+  /**
+   * Se definido, o gasto cai na fatura deste cartão (não sai direto da conta).
+   * Evita duplicar com compras importadas do cartão.
+   */
+  creditCardId?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -138,6 +143,8 @@ export interface InstallmentExpense extends WithInstitution {
   /** Data da primeira parcela, ISO YYYY-MM-DD */
   startDate: string;
   categoryId?: string;
+  /** Se definido, parcelas no cartão (fatura); senão, débito em conta. */
+  creditCardId?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -150,6 +157,8 @@ export interface OneTimeExpense extends WithInstitution {
   /** Data ISO YYYY-MM-DD */
   date: string;
   categoryId?: string;
+  /** Se definido, compra no cartão (fatura); senão, saída da conta. */
+  creditCardId?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;

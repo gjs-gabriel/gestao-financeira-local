@@ -108,6 +108,7 @@ export function upsertRecurringExpenseSynced(
   let next = ensureAccounts(snapshot);
   const accountId = defaultAccountId(next);
   next = upsertEntity(next, "recurringExpenses", item);
+  const onCard = Boolean(item.creditCardId);
   const rule: RecurringRule = {
     id: ruleIdFromRecurringExpense(item.id),
     kind: "expense",
@@ -115,7 +116,8 @@ export function upsertRecurringExpenseSynced(
     amount: item.amount,
     frequency: item.frequency,
     categoryId: item.categoryId,
-    accountId,
+    accountId: onCard ? undefined : accountId,
+    creditCardId: item.creditCardId,
     institutionId: item.institutionId,
     institutionOther: item.institutionOther,
     active: true,
@@ -147,14 +149,16 @@ export function upsertOneTimeExpenseSynced(
   let next = ensureAccounts(snapshot);
   const accountId = opts?.accountId ?? defaultAccountId(next);
   next = upsertEntity(next, "oneTimeExpenses", item);
+  const onCard = Boolean(item.creditCardId);
   const tx: Transaction = {
     id: txIdFromOneTime(item.id, "expense"),
-    kind: "expense",
+    kind: onCard ? "card_purchase" : "expense",
     date: item.date,
     amount: item.amount,
     description: item.name,
     categoryId: item.categoryId,
-    accountId,
+    accountId: onCard ? undefined : accountId,
+    creditCardId: item.creditCardId,
     institutionId: item.institutionId,
     institutionOther: item.institutionOther,
     status: "confirmed",
@@ -224,6 +228,7 @@ export function upsertInstallmentSynced(
   let next = ensureAccounts(snapshot);
   const accountId = defaultAccountId(next);
   next = upsertEntity(next, "installmentExpenses", item);
+  const onCard = Boolean(item.creditCardId);
   const plan: InstallmentPlan = {
     id: planIdFromInstallment(item.id),
     name: item.name,
@@ -231,8 +236,9 @@ export function upsertInstallmentSynced(
     totalInstallments: item.totalInstallments,
     startDate: item.startDate,
     categoryId: item.categoryId,
-    channel: "account",
-    accountId,
+    channel: onCard ? "card" : "account",
+    accountId: onCard ? undefined : accountId,
+    creditCardId: item.creditCardId,
     institutionId: item.institutionId,
     institutionOther: item.institutionOther,
     notes: item.notes,

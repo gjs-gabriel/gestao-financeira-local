@@ -56,6 +56,7 @@ function recurringExpenseToRule(
   expense: RecurringExpense,
   accountId: string,
 ): RecurringRule {
+  const onCard = Boolean(expense.creditCardId);
   return {
     id: expense.id.startsWith("rule_") ? expense.id : `rule_${expense.id}`,
     kind: "expense",
@@ -63,7 +64,8 @@ function recurringExpenseToRule(
     amount: expense.amount,
     frequency: expense.frequency,
     categoryId: expense.categoryId,
-    accountId,
+    accountId: onCard ? undefined : accountId,
+    creditCardId: expense.creditCardId,
     institutionId: expense.institutionId,
     institutionOther: expense.institutionOther,
     active: true,

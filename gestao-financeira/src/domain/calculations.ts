@@ -85,6 +85,8 @@ export function totalOneTimeExpensesForMonth(
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
   return expenses
     .filter((e) => e.date.startsWith(prefix))
+    // No cartão entram via card_purchase — evita somar duas vezes.
+    .filter((e) => !e.creditCardId)
     .reduce((sum, e) => sum + e.amount, 0);
 }
 
@@ -190,6 +192,7 @@ export function expensesByCategoryForMonth(
   }
   for (const e of snapshot.oneTimeExpenses) {
     if (!e.date.startsWith(prefix)) continue;
+    if (e.creditCardId) continue; // contado via card_purchase
     const key = e.categoryId ?? "_none";
     totals.set(key, (totals.get(key) ?? 0) + e.amount);
   }

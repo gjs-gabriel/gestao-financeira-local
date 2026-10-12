@@ -132,9 +132,20 @@ export interface PluggyItemBundle {
   loans: PluggyLoan[];
 }
 
+/** Aviso não-fatal durante o pull (produto ausente, conta sem extrato, etc.). */
+export interface PluggyFetchWarning {
+  level: "warn" | "info";
+  itemId?: string;
+  accountId?: string;
+  accountName?: string;
+  code?: string;
+  message: string;
+}
+
 export interface PluggyFetchBundle {
   fetchedAt: string;
   items: PluggyItemBundle[];
+  warnings?: PluggyFetchWarning[];
 }
 
 export class PluggyHttpError extends Error {

@@ -11,6 +11,7 @@ import {
   KeyRound,
   UserRound,
   FileUp,
+  RotateCcw,
 } from "lucide-react";
 import { useVault } from "@/lib/vault-context";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export function CofrePage() {
     updateProfileMeta,
     changePin,
     deleteProfile,
+    clearVaultData,
     error,
     clearError,
   } = useVault();
@@ -64,6 +66,10 @@ export function CofrePage() {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetPin, setResetPin] = useState("");
+  const [resetConfirm, setResetConfirm] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePin, setDeletePin] = useState("");
@@ -169,6 +175,29 @@ export function CofrePage() {
       setMsg("PIN alterado. O cofre foi recriptografado.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Falha ao alterar PIN");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmResetData() {
+    if (!resetConfirm) {
+      setMsg("Confirme a limpeza marcando a caixa.");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    clearError();
+    try {
+      await clearVaultData(resetPin);
+      setResetOpen(false);
+      setResetPin("");
+      setResetConfirm(false);
+      setMsg(
+        "Dados do cofre limpos. Usuário e PIN foram mantidos — o cofre está vazio.",
+      );
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Falha ao limpar o cofre");
     } finally {
       setBusy(false);
     }
@@ -370,6 +399,30 @@ export function CofrePage() {
           </section>
         ) : null}
 
+        <section className="surface-panel border-expense/35 p-5">
+          <h2 className="font-heading text-lg font-medium">
+            Limpar dados do cofre
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Apaga contas, lançamentos, metas, cartões e demais dados financeiros
+            de &quot;{activeProfile.name}&quot;. O usuário e o PIN permanecem —
+            você começa de novo com um cofre vazio.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-3 border-expense/40 text-expense hover:bg-expense/10"
+            onClick={() => {
+              setResetPin("");
+              setResetConfirm(false);
+              setMsg(null);
+              setResetOpen(true);
+            }}
+          >
+            <RotateCcw className="size-4" />
+            Limpar todos os dados
+          </Button>
+        </section>
+
         <section className="surface-panel border-destructive/30 p-5">
           <h2 className="font-heading text-lg font-medium text-destructive">
             Excluir usuário
@@ -523,6 +576,52 @@ export function CofrePage() {
               disabled={busy || !currentPin || newPin.length < 6}
             >
               Alterar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Limpar dados do cofre?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Todos os dados financeiros de &quot;{activeProfile.name}&quot; serão
+            apagados neste dispositivo. O login e o PIN continuam válidos. Esta
+            ação não pode ser desfeita — faça um backup .gfin antes se precisar.
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>PIN do usuário</Label>
+              <Input
+                type="password"
+                value={resetPin}
+                onChange={(e) => setResetPin(e.target.value)}
+                className="tracking-widest"
+              />
+            </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.checked)}
+                className="mt-1"
+              />
+              Entendo que contas, gastos, rendas, metas e demais lançamentos
+              serão removidos permanentemente.
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmResetData()}
+              disabled={busy || !resetPin || !resetConfirm}
+            >
+              Limpar dados
             </Button>
           </DialogFooter>
         </DialogContent>

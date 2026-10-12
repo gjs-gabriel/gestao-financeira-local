@@ -345,6 +345,12 @@ describe("CSP / framing headers config", () => {
     assert.match(src, /X-Frame-Options/);
     assert.match(src, /DENY/);
     assert.match(src, /127\.0\.0\.1:43128/);
+    // Widget Pluggy Connect (iframe + API)
+    assert.match(src, /connect\.pluggy\.ai/);
+    assert.match(src, /frame-src/);
+    assert.match(src, /same-origin-allow-popups/);
+    // COEP bloqueia o iframe Zoid — não deve estar ativo
+    assert.doesNotMatch(src, /Cross-Origin-Embedder-Policy/);
     // unsafe-eval só no ramo de desenvolvimento (Turbopack)
     assert.match(src, /isDev/);
     assert.match(src, /unsafe-eval/);
@@ -362,10 +368,17 @@ describe("Pluggy credentials stay server-side", () => {
       resolve("src/app/api/pluggy/session/route.ts"),
       "utf8",
     );
+    const connectSrc = readFileSync(
+      resolve("src/app/api/pluggy/connect-token/route.ts"),
+      "utf8",
+    );
     assert.match(fetchSrc, /PLUGGY_CLIENT_ID/);
     assert.match(fetchSrc, /PLUGGY_CLIENT_SECRET/);
+    assert.match(connectSrc, /PLUGGY_CLIENT_ID/);
+    assert.match(connectSrc, /PLUGGY_CLIENT_SECRET/);
     assert.doesNotMatch(fetchSrc, /NEXT_PUBLIC_PLUGGY/);
     assert.doesNotMatch(sessionSrc, /NEXT_PUBLIC_PLUGGY/);
+    assert.doesNotMatch(connectSrc, /NEXT_PUBLIC_PLUGGY/);
     assert.match(fetchSrc, /Authorization|parseBearerToken/);
   });
 });

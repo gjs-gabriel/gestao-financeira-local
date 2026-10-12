@@ -21,6 +21,8 @@ export interface PluggyIntegrationSectionProps {
   busy: boolean;
   onSaveItemIds: () => void;
   onSyncNow: () => void;
+  /** Slot do widget Pluggy Connect (abrir banco + consentimento). */
+  connectSlot?: ReactNode;
 }
 
 function GuideBlock({
@@ -62,6 +64,7 @@ export function PluggyIntegrationSection({
   busy,
   onSaveItemIds,
   onSyncNow,
+  connectSlot,
 }: PluggyIntegrationSectionProps) {
   return (
     <section className="surface-panel p-5">
@@ -145,24 +148,30 @@ export function PluggyIntegrationSection({
               ou variáveis do launcher):
               <pre className="mt-2 overflow-x-auto rounded-md bg-muted/80 px-3 py-2 text-[11px] leading-relaxed text-foreground">
                 {`PLUGGY_CLIENT_ID=seu-client-id
-PLUGGY_CLIENT_SECRET=seu-client-secret`}
+PLUGGY_CLIENT_SECRET=seu-client-secret
+# Opcional — webhooks (HTTPS público, ex. ngrok):
+# PLUGGY_WEBHOOK_PUBLIC_URL=https://seu-tunel.ngrok.app/api/webhooks/pluggy
+# PLUGGY_WEBHOOK_SECRET=um-segredo-forte`}
               </pre>
-              Reinicie o app depois de salvar.
+              Reinicie o app depois de salvar. A Pluggy{" "}
+              <strong className="text-foreground/90">não aceita localhost</strong>{" "}
+              como URL de webhook — use um túnel HTTPS em desenvolvimento.
             </li>
             <li>
-              Conecte seus bancos no Dashboard ou no Meu Pluggy (Nubank, Itaú,
-              etc.). Cada conexão gera um{" "}
-              <strong className="text-foreground/90">itemId</strong> — um código
-              tipo{" "}
+              Preferência: use o botão{" "}
+              <strong className="text-foreground/90">Conectar banco (Pluggy)</strong>{" "}
+              abaixo — o widget abre o banco, o consentimento e devolve o{" "}
+              <strong className="text-foreground/90">itemId</strong>{" "}
+              automaticamente para o cofre.
+            </li>
+            <li>
+              Alternativa: conecte no Dashboard / Meu Pluggy, copie os itemIds
+              (código tipo{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                 a0922d6f-2007-…
               </code>
-              .
-            </li>
-            <li>
-              Copie um ou mais itemIds, cole no campo abaixo (um por linha) e
-              clique em <strong className="text-foreground/90">Salvar</strong>{" "}
-              e depois em{" "}
+              ), cole no campo abaixo e use{" "}
+              <strong className="text-foreground/90">Salvar</strong> +{" "}
               <strong className="text-foreground/90">Sincronizar agora</strong>.
             </li>
           </ol>
@@ -284,11 +293,26 @@ PLUGGY_CLIENT_SECRET=seu-client-secret`}
       <div className="mt-6 space-y-3 border-t border-border/50 pt-5">
         <div>
           <h3 className="text-sm font-medium text-foreground">
+            Conectar pelo app
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Abra o Pluggy Connect, escolha o banco e autorize. O{" "}
+            <code className="text-[11px]">itemId</code> entra no cofre
+            automaticamente. Exige{" "}
+            <code className="text-[11px]">PLUGGY_CLIENT_ID</code> /{" "}
+            <code className="text-[11px]">PLUGGY_CLIENT_SECRET</code> no
+            servidor.
+          </p>
+        </div>
+        {connectSlot}
+
+        <div className="pt-2">
+          <h3 className="text-sm font-medium text-foreground">
             Conexões neste cofre
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Cole os itemIds copiados do Dashboard (um por linha ou separados
-            por vírgula).
+            Ou cole itemIds do Dashboard (um por linha / vírgula) se preferir
+            o fluxo manual.
           </p>
         </div>
         <div className="space-y-1.5">
