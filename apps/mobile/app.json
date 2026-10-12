@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Gestão Financeira",
+    "slug": "gestao-financeira-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "gestaofinanceira",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0c1f1c"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.local.gestaofinanceira",
+      "infoPlist": {
+        "UIDesignRequiresCompatibility": false
+      }
+    },
+    "android": {
+      "package": "br.local.gestaofinanceira",
+      "adaptiveIcon": {
+        "backgroundColor": "#0c1f1c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-font",
+      "react-native-quick-crypto"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "local-gestao-financeira-mobile"
+      }
+    }
+  }
+}

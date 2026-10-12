@@ -1,7 +1,11 @@
 {
   "name": "gestao-financeira-local-workspace",
   "private": true,
-  "description": "Atalhos na raiz do workspace — o app fica em ./gestao-financeira",
+  "description": "Workspace: desktop Windows + mobile Expo. Desktop em ./gestao-financeira",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "npm run dev --prefix gestao-financeira",
     "build": "npm run build --prefix gestao-financeira",
@@ -12,6 +16,11 @@
     "package:windows": "npm run package:windows --prefix gestao-financeira",
     "build:launcher": "npm run build:launcher --prefix gestao-financeira",
     "test": "npm run test --prefix gestao-financeira",
-    "test:ai": "npm run test:ai --prefix gestao-financeira"
+    "test:ai": "npm run test:ai --prefix gestao-financeira",
+    "mobile": "npm run start --workspace=apps/mobile",
+    "mobile:android": "npm run android --workspace=apps/mobile",
+    "mobile:emulator": "powershell -ExecutionPolicy Bypass -File apps/mobile/scripts/run-emulator.ps1",
+    "mobile:ios": "npm run ios --workspace=apps/mobile",
+    "sync:gf-core": "node scripts/sync-gf-core.mjs"
   }
 }
