@@ -26,10 +26,10 @@ import {
   Brain,
   Sparkles,
   Users,
-  UserRound,
   Shield,
   ShoppingBag,
   Bot,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -80,6 +80,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Ferramentas",
     items: [
+      { href: "/finn", label: "Finn", icon: MessageSquare },
       { href: "/analista", label: "Analista", icon: Sparkles },
       { href: "/inteligencia", label: "Inteligência", icon: Brain },
       { href: "/simulacao-compra", label: "Simular compra", icon: ShoppingBag },
@@ -137,18 +138,12 @@ export function AppNav() {
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                      "group relative flex items-center gap-2.5 px-3 py-[9px] text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                       active
-                        ? "bg-primary/10 font-medium text-primary"
-                        : "text-foreground/75 hover:bg-accent/60 hover:text-foreground",
+                        ? "rounded-r-lg rounded-l-none border-l-[3px] border-foreground bg-foreground/[0.06] font-semibold text-foreground"
+                        : "rounded-lg text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground",
                     )}
                   >
-                    {active ? (
-                      <span
-                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary"
-                        aria-hidden
-                      />
-                    ) : null}
                     <Icon className="size-4 shrink-0 opacity-80" />
                     {label}
                   </Link>
@@ -161,18 +156,27 @@ export function AppNav() {
     </nav>
   );
 
+  const avatarLetters = activeProfile
+    ? activeProfile.name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]!.toUpperCase())
+        .join("") || "?"
+    : "";
+
   const userCard = activeProfile ? (
-    <div className="rounded-xl border border-border/60 bg-card/70 p-3 shadow-sm">
-      <div className="flex items-center gap-2.5">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
+    <div className="surface-item p-3">
+      <div className="flex items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#ccebe0] text-[13px] font-bold text-foreground">
           {isAdminSession ? (
             <Shield className="size-4" />
           ) : (
-            <UserRound className="size-4" />
+            avatarLetters
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium leading-tight">
+          <p className="truncate text-[13px] font-bold leading-tight">
             {activeProfile.name}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
@@ -218,16 +222,11 @@ export function AppNav() {
 
   return (
     <>
-      <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-border/40 bg-sidebar/90 p-4 backdrop-blur-sm md:flex">
-        <div className="mb-4 px-2">
-          <p className="font-heading text-[1.05rem] font-semibold tracking-tight text-primary">
-            Gestão
-          </p>
-          <p className="font-heading text-[1.05rem] font-semibold tracking-tight text-primary/80">
-            Financeira
-          </p>
+      <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-4 backdrop-blur-xl md:flex">
+        <div className="mb-6 px-2">
+          <p className="brand-mark">Gestão Financeira</p>
         </div>
-        {userCard ? <div className="mb-4 shrink-0">{userCard}</div> : null}
+        {userCard ? <div className="mb-6 shrink-0">{userCard}</div> : null}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {links}
         </div>
@@ -240,9 +239,7 @@ export function AppNav() {
 
       <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border/40 bg-background/85 px-4 py-3 backdrop-blur-md md:hidden">
         <div className="min-w-0">
-          <p className="font-heading text-base font-semibold text-primary">
-            Gestão Financeira
-          </p>
+          <p className="brand-mark text-lg">Gestão Financeira</p>
           {activeProfile ? (
             <p className="truncate text-xs text-muted-foreground">
               {activeProfile.name}

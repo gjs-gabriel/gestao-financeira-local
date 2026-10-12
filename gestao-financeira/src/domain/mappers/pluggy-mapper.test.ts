@@ -144,4 +144,17 @@ describe("pluggy-mapper", () => {
     assert.ok(nonzero.length >= 3, "deve haver carga nos meses do plano");
     assert.ok(series.every((p) => p.parcelas === 0 || p.parcelas === 250));
   });
+
+  it("sanitiza descrição com payload XSS na ingestão", () => {
+    const dirty = structuredClone(fixtureBundle()) as ReturnType<
+      typeof fixtureBundle
+    >;
+    dirty.items[0]!.transactions[0]!.description =
+      `<img src=x onerror="alert(1)">PADARIA`;
+    const mapped = mapPluggyBundle(dirty, NOW);
+    const names = mapped.oneTimeExpenses.map((e) => e.name);
+    assert.ok(names.some((n) => n.includes("PADARIA")));
+    assert.ok(names.every((n) => !n.includes("<") && !n.includes(">")));
+    assert.ok(names.every((n) => !n.includes('"')));
+  });
 });

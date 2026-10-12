@@ -107,23 +107,55 @@ export function AIAnalysisCard({
   title,
   children,
   action,
+  eyebrow,
 }: {
   title: string;
   children: React.ReactNode;
   action?: React.ReactNode;
+  /** Rótulo pequeno acima do título (ex.: Estimativa) */
+  eyebrow?: string;
 }) {
   return (
     <section className="border-t border-border/40 pt-6">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-base font-medium">
-          <span className="text-primary" aria-hidden>
-            ✦
-          </span>
-          {title}
-        </h2>
+        <div>
+          {eyebrow ? <p className="type-label mb-1">{eyebrow}</p> : null}
+          <h2 className="font-heading text-xl font-extrabold tracking-tight md:text-[22px]">
+            {title}
+          </h2>
+        </div>
         {action}
       </div>
       {children}
     </section>
+  );
+}
+
+/** Aviso forte: simulação ≠ garantia / pedra */
+export function SimulationNotice({
+  children = "Simulação ilustrativa com as premissas abaixo. Não é garantia de resultado.",
+  compact,
+}: {
+  children?: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <aside
+      role="note"
+      className={cn(
+        "rounded-xl border border-expense/35 bg-expense/10 text-foreground",
+        compact ? "px-3 py-2" : "px-4 py-3",
+      )}
+    >
+      <p className="type-label mb-1 text-expense">Estimativa · não é previsão</p>
+      <p
+        className={cn(
+          "font-medium leading-snug",
+          compact ? "text-xs" : "text-sm",
+        )}
+      >
+        {children}
+      </p>
+    </aside>
   );
 }

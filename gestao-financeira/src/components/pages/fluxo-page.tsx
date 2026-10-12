@@ -6,6 +6,7 @@ import {
   cashflowLastMonths,
   commitmentSplit,
   expenseCompositionSeries,
+  formatBrl,
   futureInstallmentSeries,
   listYearsAround,
   monthlyCashflowDetailed,
@@ -14,17 +15,24 @@ import {
 } from "@/domain";
 import { useVault } from "@/lib/vault-context";
 import {
-  CHART_AMBER,
-  CHART_BLUE,
-  CHART_ROSE,
-  CHART_TEAL,
+  CHART_BAR_CLASS,
+  CHART_BAR_GAP,
+  CHART_BAR_RADIUS_TOP,
+  CHART_BAR_SIZE,
+  CHART_BRAND,
+  CHART_DEBT,
+  CHART_EXPENSE,
+  CHART_INCOME,
+  CHART_INVEST,
+  CHART_STROKE,
+  ChartGradient,
+  ChartGrid,
+  GlassChartTooltip,
   brlTick,
-  chartTooltipStyle,
-  monthAxisTick,
+  chartAxisTick,
   percentDomain,
   tooltipBrl,
   tooltipPercent,
-  valueAxisTick,
 } from "@/components/charts/money-chart";
 import { EmptyState, Money, Metric, PageHeader, StatGroup } from "@/components/ui-helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,11 +45,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   Legend,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -97,8 +105,8 @@ export function FluxoPage() {
   return (
     <div>
       <PageHeader
-        title="Fluxo"
-        description="Como seu dinheiro se comportou ao longo do tempo."
+        title="Fluxo & Relatórios"
+        description="Visão integrada de distribuição de saídas, projeção de metas e compliance anual."
       />
 
       {!hasActivity ? (
@@ -125,7 +133,7 @@ export function FluxoPage() {
                   setMonth(Number(v));
                 }}
               >
-                <SelectTrigger className="h-9 w-36">
+                <SelectTrigger className="h-8 w-36 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -146,7 +154,7 @@ export function FluxoPage() {
                   setYear(Number(v));
                 }}
               >
-                <SelectTrigger className="h-9 w-28">
+                <SelectTrigger className="h-8 w-28 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,10 +220,16 @@ export function FluxoPage() {
             </p>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chart12} margin={{ left: 4, right: 4 }}>
+                <BarChart
+                  data={chart12}
+                  margin={{ left: 4, right: 4 }}
+                  barSize={CHART_BAR_SIZE}
+                  barGap={CHART_BAR_GAP}
+                >
+                  <ChartGrid />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                     interval={1}
@@ -223,44 +237,50 @@ export function FluxoPage() {
                   <YAxis
                     tickFormatter={brlTick}
                     width={64}
-                    tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                   />
                   <Tooltip
-                    formatter={(value, name, item) => {
-                      const amount = typeof value === "number" ? value : 0;
-                      const income = Number(item?.payload?.entradas ?? 0);
-                      const money = tooltipBrl(amount);
-                      if (income <= 0) return money;
-                      const pct = Math.round((amount / income) * 100);
-                      return `${money} (${pct}% da receita)`;
-                    }}
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid oklch(0.9 0.015 165)",
-                      fontSize: 12,
-                    }}
+                    content={
+                      <GlassChartTooltip
+                        formatter={(value, _name, item) => {
+                          const amount = typeof value === "number" ? value : 0;
+                          const payload = item.payload as
+                            | { entradas?: number }
+                            | undefined;
+                          const income = Number(payload?.entradas ?? 0);
+                          const money = tooltipBrl(amount);
+                          if (income <= 0) return money;
+                          const pct = Math.round((amount / income) * 100);
+                          return `${money} (${pct}% da receita)`;
+                        }}
+                      />
+                    }
+                    cursor={{ fill: "oklch(from var(--muted) l c h / 0.35)" }}
                   />
                   <Legend />
                   <Bar
                     dataKey="comprometido"
                     name="Gasto"
                     stackId="fluxo"
-                    fill="oklch(0.55 0.1 55)"
+                    fill={CHART_EXPENSE}
+                    className={CHART_BAR_CLASS}
                   />
                   <Bar
                     dataKey="disponivel"
                     name="Disponível"
                     stackId="fluxo"
-                    fill="oklch(0.42 0.09 175)"
+                    fill={CHART_INCOME}
+                    className={CHART_BAR_CLASS}
                   />
                   <Bar
                     dataKey="acima"
                     name="Acima da receita"
                     stackId="fluxo"
-                    fill="oklch(0.5 0.12 20)"
-                    radius={[3, 3, 0, 0]}
+                    fill={CHART_DEBT}
+                    radius={CHART_BAR_RADIUS_TOP}
+                    className={CHART_BAR_CLASS}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -274,10 +294,16 @@ export function FluxoPage() {
             </p>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={composition} margin={{ left: 4, right: 4 }}>
+                <BarChart
+                  data={composition}
+                  margin={{ left: 4, right: 4 }}
+                  barSize={CHART_BAR_SIZE}
+                  barGap={CHART_BAR_GAP}
+                >
+                  <ChartGrid />
                   <XAxis
                     dataKey="label"
-                    tick={monthAxisTick}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                     interval={1}
@@ -287,18 +313,34 @@ export function FluxoPage() {
                     width={68}
                     tickLine={false}
                     axisLine={false}
-                    tick={valueAxisTick}
+                    tick={chartAxisTick}
                   />
-                  <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                  <Tooltip
+                    content={<GlassChartTooltip formatter={tooltipBrl} />}
+                    cursor={{ fill: "oklch(from var(--muted) l c h / 0.35)" }}
+                  />
                   <Legend />
-                  <Bar dataKey="recorrente" name="Recorrente" stackId="tipo" fill={CHART_AMBER} />
-                  <Bar dataKey="pontual" name="Pontual" stackId="tipo" fill={CHART_TEAL} />
+                  <Bar
+                    dataKey="recorrente"
+                    name="Recorrente"
+                    stackId="tipo"
+                    fill={CHART_EXPENSE}
+                    className={CHART_BAR_CLASS}
+                  />
+                  <Bar
+                    dataKey="pontual"
+                    name="Pontual"
+                    stackId="tipo"
+                    fill={CHART_BRAND}
+                    className={CHART_BAR_CLASS}
+                  />
                   <Bar
                     dataKey="parcelas"
                     name="Parcelas"
                     stackId="tipo"
-                    fill={CHART_BLUE}
-                    radius={[3, 3, 0, 0]}
+                    fill={CHART_INVEST}
+                    radius={CHART_BAR_RADIUS_TOP}
+                    className={CHART_BAR_CLASS}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -312,10 +354,14 @@ export function FluxoPage() {
             </p>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={savings} margin={{ left: 4, right: 4 }}>
+                <AreaChart data={savings} margin={{ left: 4, right: 4 }}>
+                  <defs>
+                    <ChartGradient id="fluxo-sobra" color={CHART_INCOME} />
+                  </defs>
+                  <ChartGrid />
                   <XAxis
                     dataKey="label"
-                    tick={monthAxisTick}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                     interval={1}
@@ -325,21 +371,28 @@ export function FluxoPage() {
                     width={48}
                     tickLine={false}
                     axisLine={false}
-                    tick={valueAxisTick}
+                    tick={chartAxisTick}
                     domain={percentDomain}
                   />
-                  <ReferenceLine y={0} stroke="oklch(0.7 0.02 170)" strokeDasharray="3 3" />
-                  <Tooltip formatter={tooltipPercent} contentStyle={chartTooltipStyle} />
-                  <Line
+                  <ReferenceLine
+                    y={0}
+                    stroke="oklch(from var(--border) l c h / 0.55)"
+                    strokeDasharray="4 6"
+                  />
+                  <Tooltip
+                    content={<GlassChartTooltip formatter={tooltipPercent} />}
+                  />
+                  <Area
                     type="monotone"
                     dataKey="taxa"
                     name="Sobra"
-                    stroke={CHART_TEAL}
-                    strokeWidth={2}
-                    dot={false}
+                    stroke={CHART_INCOME}
+                    fill="url(#fluxo-sobra)"
+                    strokeWidth={CHART_STROKE}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
                     connectNulls={false}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </section>
@@ -351,10 +404,16 @@ export function FluxoPage() {
             </p>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={installmentsAhead} margin={{ left: 4, right: 4 }}>
+                <BarChart
+                  data={installmentsAhead}
+                  margin={{ left: 4, right: 4 }}
+                  barSize={CHART_BAR_SIZE}
+                  barGap={CHART_BAR_GAP}
+                >
+                  <ChartGrid />
                   <XAxis
                     dataKey="label"
-                    tick={monthAxisTick}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                     interval={1}
@@ -364,10 +423,19 @@ export function FluxoPage() {
                     width={68}
                     tickLine={false}
                     axisLine={false}
-                    tick={valueAxisTick}
+                    tick={chartAxisTick}
                   />
-                  <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
-                  <Bar dataKey="parcelas" name="Parcelas" fill={CHART_ROSE} radius={[3, 3, 0, 0]} />
+                  <Tooltip
+                    content={<GlassChartTooltip formatter={tooltipBrl} />}
+                    cursor={{ fill: "oklch(from var(--muted) l c h / 0.35)" }}
+                  />
+                  <Bar
+                    dataKey="parcelas"
+                    name="Parcelas"
+                    fill={CHART_EXPENSE}
+                    radius={CHART_BAR_RADIUS_TOP}
+                    className={CHART_BAR_CLASS}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -384,7 +452,7 @@ export function FluxoPage() {
                 setYear(Number(v));
               }}
             >
-              <SelectTrigger className="h-9 w-28">
+              <SelectTrigger className="h-8 w-28 rounded-lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -414,92 +482,126 @@ export function FluxoPage() {
             />
           </StatGroup>
 
-          <section className="border-t border-border/40 pt-6">
-            <h2 className="mb-4 text-base font-medium">
-              Tendência mês a mês · {year}
-            </h2>
-            <div className="h-72">
+          <h2 className="font-heading border-b border-border pb-2 text-[22px] font-extrabold tracking-tight">
+            Relatórios Consolidados de Tendência
+          </h2>
+
+          <div className="glass-surface card-premium-hover rounded-2xl p-6">
+            <p className="type-label mb-3">
+              Tendência combinada de caixa · {year}
+            </p>
+            <Money
+              value={annual.totals.income}
+              display
+              className="mb-6 text-[34px]"
+            />
+            <div className="h-52 md:h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartYear} margin={{ left: 4, right: 4 }}>
+                <AreaChart data={chartYear} margin={{ left: 4, right: 4 }}>
+                  <defs>
+                    <ChartGradient id="fluxo-entradas" color={CHART_INCOME} />
+                    <ChartGradient id="fluxo-saidas" color={CHART_EXPENSE} />
+                    <ChartGradient id="fluxo-saldo" color={CHART_BRAND} />
+                  </defs>
+                  <ChartGrid />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: "oklch(0.5 0.02 170)" }}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
                     tickFormatter={brlTick}
                     width={64}
-                    tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
+                    tick={chartAxisTick}
                     tickLine={false}
                     axisLine={false}
                   />
-                  <Tooltip
-                    formatter={tooltipBrl}
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid oklch(0.9 0.015 165)",
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip content={<GlassChartTooltip formatter={tooltipBrl} />} />
                   <Legend />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="entradas"
                     name="Entradas"
-                    stroke="oklch(0.42 0.1 155)"
-                    strokeWidth={2}
-                    dot={false}
+                    stroke={CHART_INCOME}
+                    fill="url(#fluxo-entradas)"
+                    strokeWidth={3}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="saidas"
                     name="Saídas"
-                    stroke="oklch(0.55 0.1 55)"
-                    strokeWidth={2}
-                    dot={false}
+                    stroke={CHART_EXPENSE}
+                    fill="url(#fluxo-saidas)"
+                    strokeWidth={2.5}
+                    strokeDasharray="2 2"
+                    activeDot={{ r: 4, strokeWidth: 0 }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="saldo"
                     name="Saldo"
-                    stroke="oklch(0.48 0.1 250)"
-                    strokeWidth={2}
+                    stroke={CHART_BRAND}
+                    fill="url(#fluxo-saldo)"
+                    strokeWidth={CHART_STROKE}
                     strokeDasharray="4 4"
-                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
-          </section>
 
-          <div className="overflow-x-auto border-t border-border/40">
-            <table className="w-full min-w-[28rem] text-left text-sm">
-              <thead className="text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-1 py-3">Mês</th>
-                  <th className="px-1 py-3">Entradas</th>
-                  <th className="px-1 py-3">Saídas</th>
-                  <th className="px-1 py-3">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {annual.months.map((m) => (
-                  <tr key={m.key} className="border-t border-border/40">
-                    <td className="px-1 py-2.5 capitalize">{m.label}</td>
-                    <td className="px-1 py-2.5">
-                      <Money value={m.income} />
-                    </td>
-                    <td className="px-1 py-2.5">
-                      <Money value={m.totalExpenses} />
-                    </td>
-                    <td className="px-1 py-2.5">
-                      <Money value={m.surplus} />
-                    </td>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[28rem] text-left text-xs">
+                <thead>
+                  <tr className="border-b border-foreground/5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <th className="px-2 py-2 font-normal">Mês</th>
+                    <th className="px-2 py-2 font-normal">Entradas</th>
+                    <th className="px-2 py-2 font-normal">Saídas</th>
+                    <th className="px-2 py-2 font-normal">Balanço líquido</th>
+                    <th className="px-2 py-2 font-normal">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="text-[13px] font-medium">
+                  {annual.months.map((m) => (
+                    <tr
+                      key={m.key}
+                      className="border-b border-foreground/[0.03]"
+                    >
+                      <td className="px-2 py-2.5 capitalize">{m.label}</td>
+                      <td className="px-2 py-2.5 tabular-nums">
+                        {formatBrl(m.income)}
+                      </td>
+                      <td className="px-2 py-2.5 tabular-nums">
+                        {formatBrl(m.totalExpenses)}
+                      </td>
+                      <td
+                        className={
+                          m.surplus >= 0
+                            ? "px-2 py-2.5 tabular-nums text-income"
+                            : "px-2 py-2.5 tabular-nums text-debt"
+                        }
+                      >
+                        {m.surplus >= 0 ? "+" : ""}
+                        {formatBrl(m.surplus)}
+                      </td>
+                      <td
+                        className={
+                          m.surplus < 0
+                            ? "px-2 py-2.5 text-debt"
+                            : "px-2 py-2.5"
+                        }
+                      >
+                        {m.surplus >= 0
+                          ? "Em Conformidade"
+                          : "Atenção Orçamentária"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

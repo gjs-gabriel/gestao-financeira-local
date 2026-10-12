@@ -266,7 +266,7 @@ export function GastosPage() {
               description="Adicione aluguel, assinaturas e contas fixas para entender o comprometimento mensal."
             />
           ) : (
-            <div className="border-t border-border/40">
+            <div className="surface-panel px-4">
               {snapshot.recurringExpenses.map((item) => (
                 <EntityRow
                   key={item.id}
@@ -328,7 +328,7 @@ export function GastosPage() {
               description="Adicione seu primeiro gasto para começar a entender para onde seu dinheiro está indo."
             />
           ) : (
-            <div className="border-t border-border/40">
+            <div className="surface-panel px-4">
               {[...snapshot.oneTimeExpenses]
                 .sort((a, b) => b.date.localeCompare(a.date))
                 .map((item) => (
@@ -393,7 +393,7 @@ export function GastosPage() {
               description="Cadastre compras parceladas para ver o compromisso mês a mês."
             />
           ) : (
-            <div className="border-t border-border/40">
+            <div className="surface-panel px-4">
               {snapshot.installmentExpenses.map((item) => (
                 <EntityRow
                   key={item.id}

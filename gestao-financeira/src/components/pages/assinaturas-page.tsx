@@ -52,7 +52,7 @@ export function AssinaturasPage() {
         }
       />
 
-      <div className="mb-6 rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+      <div className="mb-6 surface-panel px-4 py-3">
         <p className="text-xs uppercase text-muted-foreground">Total mensal estimado</p>
         <p className="font-heading text-2xl font-semibold tabular-nums">
           {formatBrl(total.monthly)}
@@ -76,7 +76,7 @@ export function AssinaturasPage() {
               return (
                 <li
                   key={item.id}
-                  className="flex justify-between gap-3 rounded-xl border border-border/50 px-4 py-3 text-sm"
+                  className="surface-item flex justify-between gap-3 px-4 py-3 text-sm"
                 >
                   <span>
                     {item.name}

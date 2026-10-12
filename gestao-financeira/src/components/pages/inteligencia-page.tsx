@@ -33,9 +33,9 @@ function ConfidenceBadge({
 }) {
   const tone =
     value === "alta"
-      ? "text-emerald-800"
+      ? "text-income"
       : value === "media"
-        ? "text-amber-800"
+        ? "text-expense"
         : "text-muted-foreground";
   return (
     <span className={`text-xs uppercase tracking-wide ${tone}`}>
@@ -103,7 +103,7 @@ export function InteligenciaPage() {
             recurrencies.map((c) => (
               <div
                 key={c.key}
-                className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 surface-panel px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <ConfidenceBadge value={c.confidence} />
@@ -136,9 +136,9 @@ export function InteligenciaPage() {
             anomalies.map((a) => (
               <div
                 key={a.id}
-                className={`rounded-xl border bg-card/40 px-4 py-3 ${
+                className={`surface-panel px-4 py-3 ${
                   a.severity === "warning"
-                    ? "border-amber-300"
+                    ? "border-expense/40"
                     : "border-border/60"
                 }`}
               >
@@ -153,7 +153,7 @@ export function InteligenciaPage() {
         </TabsContent>
 
         <TabsContent value="previsao">
-          <div className="overflow-x-auto rounded-xl border border-border/60">
+          <div className="surface-panel overflow-x-auto">
             <table className="w-full min-w-[40rem] text-sm">
               <thead>
                 <tr className="border-b border-border/60 text-left text-muted-foreground">
@@ -220,7 +220,7 @@ export function InteligenciaPage() {
                 />
               </div>
               {portfolio.concentration ? (
-                <p className="rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-amber-950">
+                <p className="surface-panel border-expense/35 px-4 py-3 text-sm text-foreground">
                   Concentração: {portfolio.concentration.name} representa{" "}
                   {portfolio.concentration.pct}% da carteira.
                 </p>
@@ -250,7 +250,7 @@ export function InteligenciaPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+    <div className="surface-panel px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-medium tabular-nums">{value}</p>
     </div>

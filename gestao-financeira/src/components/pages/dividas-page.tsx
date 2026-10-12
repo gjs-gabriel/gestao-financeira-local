@@ -11,13 +11,15 @@ import {
 import { removeEntity, upsertEntity } from "@/domain/snapshot";
 import { useVault } from "@/lib/vault-context";
 import {
-  CHART_AMBER,
-  CHART_TEAL,
+  CHART_BRAND,
+  CHART_EXPENSE,
+  CHART_STROKE,
+  ChartGradient,
+  ChartGrid,
+  GlassChartTooltip,
   brlTick,
-  chartTooltipStyle,
-  monthAxisTick,
+  chartAxisTick,
   tooltipBrl,
-  valueAxisTick,
 } from "@/components/charts/money-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,9 +34,9 @@ import {
 import { EmptyState, PageHeader, parseMoneyInput } from "@/components/ui-helpers";
 import { ConfirmDeleteDialog, EntityRow } from "@/components/entity-row";
 import {
+  Area,
+  AreaChart,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -164,7 +166,7 @@ export function DividasPage() {
           action={<Button onClick={openCreate}>Adicionar dívida</Button>}
         />
       ) : (
-        <div className="border-t border-border/40">
+        <div className="surface-panel px-4">
           {snapshot.debts.map((item) => (
             <div key={item.id} className="border-b border-border/40 py-1">
               <EntityRow
@@ -231,47 +233,56 @@ export function DividasPage() {
             <div className="mt-4">
               <div className="h-56 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
+                  <AreaChart
                     data={debtAmortizationSeries(
                       comparison.base.schedule,
                       comparison.withExtra.schedule,
                     )}
                     margin={{ left: 4, right: 4 }}
                   >
+                    <defs>
+                      <ChartGradient id="div-sem" color={CHART_EXPENSE} />
+                      <ChartGradient id="div-com" color={CHART_BRAND} />
+                    </defs>
+                    <ChartGrid />
                     <XAxis
                       dataKey="month"
                       tickLine={false}
                       axisLine={false}
-                      tick={monthAxisTick}
+                      tick={chartAxisTick}
                     />
                     <YAxis
                       tickFormatter={brlTick}
                       width={68}
                       tickLine={false}
                       axisLine={false}
-                      tick={valueAxisTick}
+                      tick={chartAxisTick}
                     />
-                    <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                    <Tooltip
+                      content={<GlassChartTooltip formatter={tooltipBrl} />}
+                    />
                     <Legend />
-                    <Line
+                    <Area
                       type="monotone"
                       dataKey="semExtra"
                       name="Sem extra"
-                      stroke={CHART_AMBER}
-                      strokeWidth={2}
-                      dot={false}
+                      stroke={CHART_EXPENSE}
+                      fill="url(#div-sem)"
+                      strokeWidth={CHART_STROKE}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
                       connectNulls={false}
                     />
-                    <Line
+                    <Area
                       type="monotone"
                       dataKey="comExtra"
                       name="Com extra"
-                      stroke={CHART_TEAL}
-                      strokeWidth={2}
-                      dot={false}
+                      stroke={CHART_BRAND}
+                      fill="url(#div-com)"
+                      strokeWidth={CHART_STROKE}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
                       connectNulls={false}
                     />
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>

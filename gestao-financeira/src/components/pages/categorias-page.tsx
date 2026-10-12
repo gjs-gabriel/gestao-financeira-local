@@ -37,7 +37,7 @@ export function CategoriasPage() {
   const [form, setForm] = useState({
     name: "",
     kind: "expense" as CategoryKind,
-    color: "#0F766E",
+    color: "#2a6b5e",
   });
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,7 +47,7 @@ export function CategoriasPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", kind: "expense", color: "#0F766E" });
+    setForm({ name: "", kind: "expense", color: "#2a6b5e" });
     setError(null);
     setOpen(true);
   }
@@ -57,7 +57,7 @@ export function CategoriasPage() {
     setForm({
       name: item.name,
       kind: item.kind,
-      color: item.color ?? "#0F766E",
+      color: item.color ?? "#2a6b5e",
     });
     setError(null);
     setOpen(true);
@@ -103,7 +103,7 @@ export function CategoriasPage() {
           action={<Button onClick={openCreate}>Adicionar categoria</Button>}
         />
       ) : (
-        <div className="border-t border-border/40">
+        <div className="surface-panel px-4">
           {snapshot.categories.map((item) => (
             <EntityRow
               key={item.id}

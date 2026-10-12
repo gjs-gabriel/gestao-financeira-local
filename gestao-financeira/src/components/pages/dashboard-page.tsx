@@ -30,6 +30,7 @@ import {
   Section,
   StatGroup,
 } from "@/components/ui-helpers";
+import { GlowCard } from "@/components/ui/glow-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,12 +52,27 @@ import {
   AreaChart,
   Bar,
   BarChart,
-  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  CHART_BAR_CLASS,
+  CHART_BAR_GAP,
+  CHART_BAR_RADIUS_TOP,
+  CHART_BAR_SIZE,
+  CHART_BRAND,
+  CHART_EXPENSE,
+  CHART_INCOME,
+  CHART_STROKE,
+  ChartGradient,
+  ChartGrid,
+  GlassChartTooltip,
+  brlTick,
+  chartAxisTick,
+  tooltipBrl,
+} from "@/components/charts/money-chart";
 
 const MONTHS = [
   "janeiro",
@@ -72,33 +88,6 @@ const MONTHS = [
   "novembro",
   "dezembro",
 ];
-
-const CHART_TEAL = "oklch(0.42 0.09 175)";
-const CHART_AMBER = "oklch(0.55 0.1 55)";
-const CHART_BLUE = "oklch(0.48 0.1 250)";
-const CAT_COLORS = [
-  "oklch(0.45 0.09 175)",
-  "oklch(0.55 0.1 55)",
-  "oklch(0.48 0.1 250)",
-  "oklch(0.5 0.08 200)",
-  "oklch(0.52 0.1 25)",
-  "oklch(0.5 0.06 145)",
-  "oklch(0.55 0.08 300)",
-  "oklch(0.48 0.04 165)",
-];
-
-function brlTick(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  });
-}
-
-function tooltipBrl(value: unknown) {
-  if (typeof value !== "number") return String(value ?? "");
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
 
 export function DashboardPage() {
   const { snapshot, activeProfile } = useVault();
@@ -268,10 +257,10 @@ export function DashboardPage() {
     <div>
       <header className="dash-hero mb-10">
         <p className="type-label mb-2">Painel</p>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight md:text-4xl">
+        <h1 className="font-heading text-3xl font-black tracking-tight md:text-4xl">
           Olá, {firstName}
         </h1>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           Seu panorama financeiro · {MONTHS[month - 1]} {year}
         </p>
         <div className="mt-5 flex flex-wrap items-end gap-3">
@@ -349,10 +338,14 @@ export function DashboardPage() {
 
       {/* Patrimônio protagonista */}
       <Section className="border-t border-border/40 pt-8">
-        <p className="type-label">Patrimônio líquido</p>
-        <p className="type-display mt-2 text-4xl text-investment md:text-5xl">
-          {formatBrl(worth)}
-        </p>
+        <GlowCard className="max-w-xl">
+          <p className="type-label">Patrimônio líquido</p>
+          <Money
+            value={worth}
+            display
+            className="mt-2 text-4xl md:text-5xl"
+          />
+        </GlowCard>
         {wealthYoY !== null ? (
           <p className="mt-2 text-sm text-muted-foreground">
             <span
@@ -373,41 +366,36 @@ export function DashboardPage() {
         {wealthSeries.length > 1 ? (
           <div className="mt-6 h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={wealthSeries}>
+              <AreaChart data={wealthSeries} margin={{ left: 4, right: 4 }}>
                 <defs>
-                  <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_BLUE} stopOpacity={0.25} />
-                    <stop offset="100%" stopColor={CHART_BLUE} stopOpacity={0} />
-                  </linearGradient>
+                  <ChartGradient id="dash-pl-fill" color={CHART_BRAND} />
                 </defs>
+                <ChartGrid />
                 <XAxis
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 11, fill: "oklch(0.5 0.02 170)" }}
+                  tick={chartAxisTick}
                 />
                 <YAxis
                   tickFormatter={brlTick}
                   width={64}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
+                  tick={chartAxisTick}
                 />
                 <Tooltip
-                  formatter={(v) => tooltipBrl(v)}
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "1px solid oklch(0.9 0.015 165)",
-                    fontSize: 12,
-                  }}
+                  content={<GlassChartTooltip formatter={tooltipBrl} />}
+                  cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}
                 />
                 <Area
                   type="monotone"
                   dataKey="pl"
                   name="Patrimônio"
-                  stroke={CHART_BLUE}
-                  fill="url(#plFill)"
-                  strokeWidth={2}
+                  stroke={CHART_BRAND}
+                  fill="url(#dash-pl-fill)"
+                  strokeWidth={CHART_STROKE}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -419,7 +407,7 @@ export function DashboardPage() {
       <Section
         title="Este mês"
         hint="Entradas, saídas e o que sobrou no período selecionado"
-        className="border-t border-border/40"
+        className="surface-panel px-4"
       >
         <StatGroup>
           <Metric
@@ -449,158 +437,112 @@ export function DashboardPage() {
 
       <DashboardAIMonthCard />
 
-      <div className="grid gap-10 border-t border-border/40 lg:grid-cols-12">
-        <Section
-          title="Para onde vai meu dinheiro?"
-          hint={topCatHint}
-          className="lg:col-span-7"
-        >
+      <h2 className="font-heading mt-2 border-b border-border pb-2 text-[22px] font-extrabold tracking-tight">
+        Painel de Fluxo e Distribuição
+      </h2>
+
+      <div className="mt-4 grid gap-6 lg:grid-cols-2">
+        <div className="glass-surface card-premium-hover rounded-2xl p-6">
+          <p className="type-label mb-3">
+            Distribuição geométrica de gastos (mês atual)
+          </p>
+          <Money
+            value={categoryTotal}
+            display
+            className="mb-6 text-[34px]"
+          />
           {categories.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Ainda não há gastos neste mês. Adicione lançamentos para ver a
               distribuição.
             </p>
           ) : (
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={categories.slice(0, 6).map((c) => ({
-                    name: c.categoryName,
-                    valor: c.amount,
-                    id: c.categoryId,
-                  }))}
-                  layout="vertical"
-                  margin={{ left: 8, right: 8 }}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={100}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11, fill: "oklch(0.4 0.02 170)" }}
-                  />
-                  <Tooltip
-                    formatter={(v) => tooltipBrl(v)}
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid oklch(0.9 0.015 165)",
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar
-                    dataKey="valor"
-                    radius={[0, 4, 4, 0]}
-                    cursor="pointer"
-                    onClick={(d) => {
-                      const id = (d as { id?: string }).id;
-                      if (id) setCategoryId(id);
-                    }}
-                  >
-                    {categories.slice(0, 6).map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={CAT_COLORS[i % CAT_COLORS.length]}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Section>
-
-        <Section
-          title="Próximos compromissos"
-          hint="Saídas com data nos próximos dias"
-          className="lg:col-span-5"
-        >
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhum compromisso futuro cadastrado neste período.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border/40">
-              {upcoming.map((ev) => (
-                <li
-                  key={`${ev.date}-${ev.name}-${ev.amount}`}
-                  className="flex items-baseline justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{ev.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {ev.date.slice(8, 10)}/{ev.date.slice(5, 7)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm tabular-nums text-expense">
-                    −{formatBrl(ev.amount)}
-                  </span>
-                </li>
-              ))}
+            <ul className="space-y-3.5">
+              {categories.slice(0, 4).map((c, i) => {
+                const share =
+                  categoryTotal > 0 ? c.amount / categoryTotal : 0;
+                const tones = [
+                  "primary",
+                  "expense",
+                  "investment",
+                  "insight",
+                ] as const;
+                return (
+                  <li key={c.categoryId}>
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => setCategoryId(c.categoryId)}
+                    >
+                      <div className="mb-1.5 flex justify-between text-xs font-semibold">
+                        <span>{c.categoryName}</span>
+                        <span className="tabular-nums">
+                          {(share * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <ProgressBar value={share} tone={tones[i % tones.length]} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
-        </Section>
-      </div>
+          {categories[0] ? (
+            <div className="insight-footer">
+              <span className="pulse-indicator" aria-hidden />
+              <span>
+                <strong className="text-foreground">
+                  {categories[0].categoryName}
+                </strong>{" "}
+                representa a maior concentração de saídas deste ciclo.
+              </span>
+            </div>
+          ) : topCatHint ? (
+            <p className="mt-4 text-xs text-muted-foreground">{topCatHint}</p>
+          ) : null}
+        </div>
 
-      <div className="grid gap-10 border-t border-border/40 lg:grid-cols-12">
-        <Section
-          title="Meu dinheiro está aumentando ou diminuindo?"
-          hint="Entradas e saídas ao longo da janela selecionada"
-          className="lg:col-span-7"
-        >
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartFlow}>
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11, fill: "oklch(0.5 0.02 170)" }}
-                />
-                <YAxis
-                  tickFormatter={brlTick}
-                  width={64}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 10, fill: "oklch(0.5 0.02 170)" }}
-                />
-                <Tooltip
-                  formatter={(v) => tooltipBrl(v)}
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "1px solid oklch(0.9 0.015 165)",
-                    fontSize: 12,
-                  }}
-                />
-                <Bar dataKey="entradas" name="Entradas" fill={CHART_TEAL} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="saidas" name="Saídas" fill={CHART_AMBER} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Section>
-
-        <Section title="Minhas metas" className="lg:col-span-5">
+        <div className="glass-surface card-premium-hover rounded-2xl p-6">
+          <p className="type-label mb-3">
+            Acompanhamento de metas de longo prazo
+          </p>
+          <Money
+            value={snapshot.goals.reduce((s, g) => s + g.targetAmount, 0)}
+            display
+            className="mb-6 text-[34px]"
+          />
           {snapshot.goals.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Cadastre metas para acompanhar o progresso rumo aos seus
               objetivos.
             </p>
           ) : (
-            <ul className="space-y-5">
-              {snapshot.goals.slice(0, 4).map((goal) => {
+            <ul className="space-y-3">
+              {snapshot.goals.slice(0, 3).map((goal, i) => {
                 const p = goalProgress(goal);
+                const tones = ["investment", "income", "insight"] as const;
                 return (
-                  <li key={goal.id}>
-                    <div className="mb-1.5 flex justify-between gap-2 text-sm">
-                      <span className="font-medium">{goal.name}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {Math.round(p * 100)}%
+                  <li key={goal.id} className="meta-box">
+                    <div className="mb-1.5 flex justify-between text-[13px] font-semibold">
+                      <span>{goal.name}</span>
+                      <span
+                        className={cn(
+                          "tabular-nums",
+                          tones[i % 3] === "income" && "text-income",
+                          tones[i % 3] === "investment" && "text-investment",
+                          tones[i % 3] === "insight" && "text-insight",
+                        )}
+                      >
+                        {(p * 100).toFixed(1)}%
                       </span>
                     </div>
-                    <ProgressBar value={p} tone="investment" />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatBrl(goal.currentAmount)} /{" "}
+                    <ProgressBar
+                      value={p}
+                      tone={tones[i % 3]}
+                      className="h-1.5"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {formatBrl(goal.currentAmount)} acumulados de{" "}
                       {formatBrl(goal.targetAmount)}
                     </p>
                   </li>
@@ -610,10 +552,94 @@ export function DashboardPage() {
           )}
           <Link
             href="/metas"
-            className="mt-4 inline-block text-sm text-primary underline-offset-2 hover:underline"
+            className="mt-4 inline-block text-[13px] font-medium text-foreground underline-offset-2 hover:underline"
           >
             Ver todas as metas
           </Link>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 border-t border-border/40 pt-8 lg:grid-cols-12">
+        <Section
+          title="Meu dinheiro está aumentando ou diminuindo?"
+          hint="Entradas e saídas ao longo da janela selecionada"
+          className="lg:col-span-7"
+        >
+          <div className="glass-surface h-56 rounded-2xl p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartFlow}
+                barSize={CHART_BAR_SIZE}
+                barGap={CHART_BAR_GAP}
+              >
+                <ChartGrid />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={chartAxisTick}
+                />
+                <YAxis
+                  tickFormatter={brlTick}
+                  width={64}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={chartAxisTick}
+                />
+                <Tooltip
+                  content={<GlassChartTooltip formatter={tooltipBrl} />}
+                  cursor={{ fill: "oklch(from var(--muted) l c h / 0.35)" }}
+                />
+                <Bar
+                  dataKey="entradas"
+                  name="Entradas"
+                  fill={CHART_INCOME}
+                  radius={CHART_BAR_RADIUS_TOP}
+                  className={CHART_BAR_CLASS}
+                />
+                <Bar
+                  dataKey="saidas"
+                  name="Saídas"
+                  fill={CHART_EXPENSE}
+                  radius={CHART_BAR_RADIUS_TOP}
+                  className={CHART_BAR_CLASS}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Section>
+
+        <Section
+          title="Próximos compromissos"
+          hint="Saídas com data nos próximos dias"
+          className="lg:col-span-5"
+        >
+          <div className="glass-surface rounded-2xl p-4">
+            {upcoming.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum compromisso futuro cadastrado neste período.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border/40">
+                {upcoming.map((ev) => (
+                  <li
+                    key={`${ev.date}-${ev.name}-${ev.amount}`}
+                    className="flex items-baseline justify-between gap-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{ev.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ev.date.slice(8, 10)}/{ev.date.slice(5, 7)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm tabular-nums text-expense">
+                      −{formatBrl(ev.amount)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </Section>
       </div>
 
@@ -621,7 +647,7 @@ export function DashboardPage() {
         <Section
           title="Insights"
           hint="Observações calculadas a partir dos seus dados"
-          className="border-t border-border/40"
+          className="surface-panel px-4"
         >
           <div className="grid gap-5 sm:grid-cols-2">
             {insights.map((item) => (
@@ -638,7 +664,7 @@ export function DashboardPage() {
 
       <Section
         title="Maiores gastos do mês"
-        className="border-t border-border/40"
+        className="surface-panel px-4"
       >
         {lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -733,7 +759,7 @@ function DashboardAIMonthCard() {
     <Section
       title="✦ Análise do mês"
       hint="Resumo calculado localmente — sem enviar dados para servidores"
-      className="border-t border-border/40"
+      className="surface-panel px-4"
     >
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
         {overviewText || "Abra o Analista para um panorama completo."}
@@ -745,10 +771,10 @@ function DashboardAIMonthCard() {
       ) : null}
       <div className="mt-4">
         <Link
-          href="/analista"
+          href="/finn"
           className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
         >
-          Ver análise completa
+          Conversar com Finn
         </Link>
       </div>
     </Section>
@@ -779,7 +805,7 @@ function FilterSelect({
           if (v) onChange(v);
         }}
       >
-        <SelectTrigger className={cn("h-9", width)}>
+        <SelectTrigger className={cn("h-8 rounded-lg", width)}>
           {renderValue ? (
             <SelectValue>{renderValue}</SelectValue>
           ) : (

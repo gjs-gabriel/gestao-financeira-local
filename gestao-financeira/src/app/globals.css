@@ -39,12 +39,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* Semantic financial colors */
   --color-income: var(--income);
   --color-expense: var(--expense);
   --color-investment: var(--investment);
   --color-debt: var(--debt);
   --color-insight: var(--insight);
+  --color-chart-brand: var(--chart-brand);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -54,48 +54,65 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Forest teal — Private Wealth for people */
+/*
+  Forest teal — Private Wealth for people
+  Alinhado ao mock fluxo_e_relatorios.html (#f4faf7 / #0f2924 / accentes)
+*/
 :root {
-  --background: oklch(0.975 0.01 165);
-  --foreground: oklch(0.22 0.028 165);
-  --card: oklch(0.995 0.005 165);
-  --card-foreground: oklch(0.22 0.028 165);
-  --popover: oklch(0.995 0.005 165);
-  --popover-foreground: oklch(0.22 0.028 165);
-  --primary: oklch(0.38 0.075 175);
+  --background: oklch(0.978 0.012 165);
+  --foreground: oklch(0.24 0.04 170);
+  --card: oklch(0.995 0.004 165);
+  --card-foreground: oklch(0.24 0.04 170);
+  --popover: oklch(0.995 0.004 165);
+  --popover-foreground: oklch(0.24 0.04 170);
+  --primary: oklch(0.28 0.05 170);
   --primary-foreground: oklch(0.985 0.008 165);
-  --secondary: oklch(0.94 0.015 165);
-  --secondary-foreground: oklch(0.28 0.04 175);
-  --muted: oklch(0.945 0.012 165);
-  --muted-foreground: oklch(0.48 0.025 170);
-  --accent: oklch(0.93 0.025 175);
-  --accent-foreground: oklch(0.28 0.05 175);
-  --destructive: oklch(0.52 0.18 25);
-  --border: oklch(0.9 0.015 165);
-  --input: oklch(0.92 0.012 165);
-  --ring: oklch(0.5 0.065 175);
+  --secondary: oklch(0.95 0.014 165);
+  --secondary-foreground: oklch(0.28 0.04 170);
+  --muted: oklch(0.95 0.012 165);
+  --muted-foreground: oklch(0.52 0.035 170);
+  --accent: oklch(0.94 0.02 165);
+  --accent-foreground: oklch(0.26 0.045 170);
+  --destructive: oklch(0.63 0.22 25);
+  --border: oklch(0.24 0.04 170 / 0.1);
+  --input: oklch(0.94 0.012 165);
+  --ring: oklch(0.45 0.06 175);
 
-  /* Semantic */
-  --income: oklch(0.42 0.1 155);
-  --expense: oklch(0.52 0.12 55);
-  --investment: oklch(0.45 0.1 250);
-  --debt: oklch(0.5 0.12 20);
-  --insight: oklch(0.4 0.06 200);
+  /* Semânticos vibrantes (mock) */
+  --income: oklch(0.7 0.17 155);
+  --expense: oklch(0.75 0.15 70);
+  --investment: oklch(0.55 0.14 240);
+  --debt: oklch(0.63 0.22 25);
+  --insight: oklch(0.72 0.12 210);
 
-  --chart-1: oklch(0.42 0.09 175);
-  --chart-2: oklch(0.48 0.1 250);
-  --chart-3: oklch(0.55 0.1 55);
-  --chart-4: oklch(0.5 0.12 20);
-  --chart-5: oklch(0.45 0.06 200);
+  /* Glass — card rgba(254,255,254,0.85) + borda branca */
+  --glass-fill: oklch(0.995 0.004 165 / 0.85);
+  --glass-inset: inset 0 1px 1px oklch(1 0 0 / 0.6);
+  --glass-edge: oklch(1 0 0 / 0.6);
+  --shadow-premium:
+    0 4px 30px oklch(0.24 0.04 170 / 0.04),
+    var(--glass-inset);
+  --shadow-premium-hover:
+    0 16px 35px oklch(0.24 0.04 170 / 0.06),
+    inset 0 1px 1px oklch(1 0 0 / 0.9);
+
+  /* Série de marca — teal médio legível (não o primary quase preto) */
+  --chart-brand: oklch(0.52 0.09 170);
+  /* Paleta categórica mid-chroma (semânticas de dinheiro ficam à parte) */
+  --chart-1: oklch(0.52 0.09 170);
+  --chart-2: oklch(0.58 0.12 240);
+  --chart-3: oklch(0.72 0.14 70);
+  --chart-4: oklch(0.68 0.11 210);
+  --chart-5: oklch(0.65 0.12 25);
   --radius: 0.75rem;
-  --sidebar: oklch(0.97 0.01 165 / 0.72);
-  --sidebar-foreground: oklch(0.22 0.028 165);
-  --sidebar-primary: oklch(0.38 0.075 175);
+  --sidebar: oklch(0.978 0.012 165 / 0.72);
+  --sidebar-foreground: oklch(0.24 0.04 170);
+  --sidebar-primary: oklch(0.28 0.05 170);
   --sidebar-primary-foreground: oklch(0.985 0.008 165);
-  --sidebar-accent: oklch(0.92 0.03 175);
-  --sidebar-accent-foreground: oklch(0.28 0.05 175);
-  --sidebar-border: oklch(0.9 0.015 165);
-  --sidebar-ring: oklch(0.5 0.065 175);
+  --sidebar-accent: oklch(0.24 0.04 170 / 0.06);
+  --sidebar-accent-foreground: oklch(0.24 0.04 170);
+  --sidebar-border: oklch(0.24 0.04 170 / 0.08);
+  --sidebar-ring: oklch(0.45 0.06 175);
 }
 
 @layer base {
@@ -110,21 +127,30 @@
   }
 }
 
-/* Quieter atmosphere */
+/* Atmosfera do mock: radiais mint + cyan */
 .app-shell {
-  background:
-    radial-gradient(1100px 520px at 8% -8%, oklch(0.9 0.035 175 / 0.35), transparent 55%),
-    radial-gradient(800px 420px at 100% 0%, oklch(0.92 0.025 210 / 0.22), transparent 50%),
-    linear-gradient(168deg, oklch(0.978 0.01 165) 0%, oklch(0.96 0.014 170) 50%, oklch(0.97 0.01 160) 100%);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(
+      circle at 10% 10%,
+      oklch(from var(--income) l c h / 0.08) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 90% 80%,
+      oklch(from var(--insight) l c h / 0.07) 0%,
+      transparent 50%
+    );
   background-attachment: fixed;
 }
 
 .brand-mark {
   font-family: var(--font-heading);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1.375rem;
+  font-weight: 900;
   letter-spacing: -0.02em;
-  color: var(--primary);
+  color: var(--foreground);
+  line-height: 1.15;
 }
 
 .gate-panel {
@@ -134,7 +160,7 @@
 .gate-hero .gate-title {
   font-family: var(--font-heading);
   font-size: clamp(1.75rem, 4vw, 2.25rem);
-  font-weight: 600;
+  font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
@@ -158,28 +184,145 @@
   animation: rise 0.35s ease-out both;
 }
 
-/* Typography scale */
+/* Tipografia display — gradiente deep teal → investment */
 .type-display {
   font-family: var(--font-heading);
-  font-weight: 600;
-  letter-spacing: -0.035em;
+  font-weight: 900;
+  letter-spacing: -0.02em;
   line-height: 1.1;
+  background-image: linear-gradient(
+    135deg,
+    var(--foreground) 0%,
+    oklch(0.32 0.045 170) 55%,
+    var(--investment) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .type-metric {
-  font-family: var(--font-sans);
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
 
 .type-label {
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted-foreground);
+}
+
+@layer components {
+  .glass-surface {
+    background-color: var(--glass-fill);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--shadow-premium);
+  }
+
+  .card-premium-hover {
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      border-color 0.25s ease;
+  }
+  .card-premium-hover:hover {
+    transform: translateY(-4px);
+    border-color: oklch(1 0 0 / 0.9);
+    box-shadow: var(--shadow-premium-hover);
+  }
+
+  .glow-insight {
+    position: relative;
+    isolation: isolate;
+  }
+  .glow-insight::before {
+    content: "";
+    position: absolute;
+    inset: -10% -6%;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(
+      ellipse at 40% 30%,
+      oklch(from var(--insight) l c h / 0.18),
+      transparent 65%
+    );
+    filter: blur(36px);
+    opacity: 0.65;
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
+    pointer-events: none;
+  }
+  .group\/glow:hover .glow-insight::before,
+  .glow-insight:hover::before {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  /* Insight footer do mock */
+  .insight-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid oklch(from var(--foreground) l c h / 0.05);
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+
+  .pulse-indicator {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background-color: var(--insight);
+    position: relative;
+  }
+  .pulse-indicator::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: var(--insight);
+    animation: pulse-glow 2s infinite ease-in-out;
+  }
+
+  .meta-box {
+    background: oklch(1 0 0 / 0.4);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.875rem;
+  }
+
+  /* Painéis e itens de lista — padrão global (substitui bg-card/40 flat) */
+  .surface-panel {
+    background-color: var(--glass-fill);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-edge);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-premium);
+  }
+
+  .surface-item {
+    border: 1px solid oklch(from var(--foreground) l c h / 0.08);
+    border-radius: 0.75rem;
+    background: oklch(1 0 0 / 0.45);
+  }
+
+  .surface-inset {
+    border: 1px solid oklch(from var(--foreground) l c h / 0.06);
+    border-radius: 0.75rem;
+    background: oklch(1 0 0 / 0.35);
+  }
 }
 
 @keyframes rise {
@@ -193,11 +336,30 @@
   }
 }
 
+@keyframes pulse-glow {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gate-panel,
   .gate-form,
   .dash-hero,
   .animate-fade-in {
+    animation: none;
+  }
+  .card-premium-hover,
+  .card-premium-hover:hover {
+    transform: none;
+    transition: none;
+  }
+  .pulse-indicator::after {
     animation: none;
   }
 }

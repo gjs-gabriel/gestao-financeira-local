@@ -138,7 +138,7 @@ export function IaManagerPage() {
     <div className="space-y-8">
       <PageHeader
         title="Gerenciador da IA"
-        description="Diagnóstico e controle do Assistente Financeiro Local. Abrir só o Ollama não basta — o app precisa do Local AI Runtime na porta 43128."
+        description="Diagnóstico e controle do runtime que alimenta o Finn. Abrir só o Ollama não basta — o app precisa do Local AI Runtime na porta 43128."
       />
 
       <section className="space-y-4 border-t border-border/50 pt-6">

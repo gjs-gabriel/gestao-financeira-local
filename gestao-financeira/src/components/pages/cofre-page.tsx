@@ -202,7 +202,7 @@ export function CofrePage() {
       />
 
       <div className="space-y-4">
-        <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+        <section className="surface-panel p-5">
           <h2 className="font-heading text-lg font-medium">Perfil</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {activeProfile.kind === "demo"
@@ -275,7 +275,7 @@ export function CofrePage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+        <section className="surface-panel p-5">
           <h2 className="font-heading text-lg font-medium">Status do cofre</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Usuário: <strong>{activeProfile.name}</strong>
@@ -321,7 +321,7 @@ export function CofrePage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+        <section className="surface-panel p-5">
           <h2 className="font-heading text-lg font-medium">
             Migração entre dispositivos
           </h2>
@@ -343,7 +343,7 @@ export function CofrePage() {
         </section>
 
         {activeProfile.kind !== "admin" ? (
-          <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+          <section className="surface-panel p-5">
             <h2 className="font-heading text-lg font-medium">
               Outras configurações
             </h2>
@@ -370,7 +370,7 @@ export function CofrePage() {
           </section>
         ) : null}
 
-        <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
+        <section className="surface-panel border-destructive/30 p-5">
           <h2 className="font-heading text-lg font-medium text-destructive">
             Excluir usuário
           </h2>
@@ -500,7 +500,7 @@ export function CofrePage() {
                 value={newPin}
                 onChange={(e) => setNewPin(e.target.value)}
                 className="tracking-widest"
-                minLength={4}
+                minLength={6}
               />
             </div>
             <div className="space-y-1.5">
@@ -510,7 +510,7 @@ export function CofrePage() {
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value)}
                 className="tracking-widest"
-                minLength={4}
+                minLength={6}
               />
             </div>
           </div>
@@ -520,7 +520,7 @@ export function CofrePage() {
             </Button>
             <Button
               onClick={() => void confirmChangePin()}
-              disabled={busy || !currentPin || newPin.length < 4}
+              disabled={busy || !currentPin || newPin.length < 6}
             >
               Alterar
             </Button>

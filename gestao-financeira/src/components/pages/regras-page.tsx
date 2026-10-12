@@ -109,7 +109,7 @@ export function RegrasPage() {
           description="Crie regras para acelerar a importação de extratos."
         />
       ) : (
-        <div className="rounded-xl border border-border/60 bg-card/40 px-4">
+        <div className="surface-panel px-4">
           {rules.map((rule) => {
             const cat =
               snapshot.categories.find((c) => c.id === rule.categoryId)?.name ??

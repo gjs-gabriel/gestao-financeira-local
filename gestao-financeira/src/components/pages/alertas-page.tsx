@@ -27,14 +27,14 @@ export function AlertasPage() {
           {alerts.map((alert) => {
             const border =
               alert.severity === "critical"
-                ? "border-rose-300"
+                ? "border-debt/40"
                 : alert.severity === "warning"
-                  ? "border-amber-300"
+                  ? "border-expense/40"
                   : "border-border/60";
             return (
               <li
                 key={alert.id}
-                className={`rounded-xl border bg-card/40 px-4 py-3 ${border}`}
+                className={`surface-panel px-4 py-3 ${border}`}
               >
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                   {alert.severity === "critical"

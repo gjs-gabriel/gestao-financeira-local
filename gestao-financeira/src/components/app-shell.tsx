@@ -54,8 +54,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AdminRouteGuard>
             <div className="app-shell flex min-h-dvh flex-col md:h-dvh md:flex-row md:overflow-hidden">
               <AppNav />
-              <main className="flex-1 overflow-x-hidden px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 lg:px-10">
-                <div className="mx-auto w-full max-w-[1280px] animate-fade-in">
+              <main className="flex-1 overflow-x-hidden px-4 py-6 md:overflow-y-auto md:px-10 md:py-10">
+                <div className="mx-auto w-full max-w-[1200px] animate-fade-in">
                   {children}
                 </div>
               </main>

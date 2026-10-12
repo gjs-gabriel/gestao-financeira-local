@@ -1103,7 +1103,7 @@ export function SimulacaoCompraPage() {
         {alternatives.map((alt, index) => (
           <li
             key={alt.id}
-            className="rounded-xl border border-border/60 bg-card/40 p-4"
+            className="surface-panel p-4"
           >
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-sm font-medium leading-normal">
@@ -1461,7 +1461,7 @@ export function SimulacaoCompraPage() {
                     className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
                       checked
                         ? "border-primary/40 bg-primary/5"
-                        : "border-border/60 bg-card/30"
+                        : "surface-inset border-border/60"
                     }`}
                   >
                     <input
@@ -1541,7 +1541,7 @@ export function SimulacaoCompraPage() {
           title="Origem do dinheiro"
           hint="Por que pedimos isso: a simulação projeta o saldo dessa aplicação/conta ao longo de 12 meses — se você resgata à vista, se mantém investido enquanto parcela, etc."
         >
-          <div className="mb-4 rounded-lg border border-border/50 bg-card/30 px-3 py-3 text-sm leading-relaxed text-muted-foreground">
+          <div className="mb-4 surface-inset px-3 py-3 text-sm leading-relaxed text-muted-foreground">
             Escolha de onde sairia o Pix (ou o dinheiro que “compete” com o
             parcelamento). Com o rendimento (% CDI e IR), o app compara o
             patrimônio final de cada estratégia. Conta corrente costuma render
@@ -1682,7 +1682,7 @@ export function SimulacaoCompraPage() {
           hint="Revise o resumo. Você pode voltar a qualquer passo para ajustar."
         >
           <dl className="space-y-3 text-sm">
-            <div className="rounded-lg border border-border/50 bg-card/30 px-3 py-2.5">
+            <div className="surface-inset px-3 py-2.5">
               <dt className="text-xs text-muted-foreground">Intenção</dt>
               <dd className="mt-1 leading-relaxed">
                 À vista {formatBrl(parseMoneyInput(cashPrice))} · a prazo{" "}
@@ -1695,7 +1695,7 @@ export function SimulacaoCompraPage() {
                 </dd>
               ) : null}
             </div>
-            <div className="rounded-lg border border-border/50 bg-card/30 px-3 py-2.5">
+            <div className="surface-inset px-3 py-2.5">
               <dt className="text-xs text-muted-foreground">
                 Estratégias ({alternatives.length})
               </dt>
@@ -1711,7 +1711,7 @@ export function SimulacaoCompraPage() {
                 ))}
               </dd>
             </div>
-            <div className="rounded-lg border border-border/50 bg-card/30 px-3 py-2.5">
+            <div className="surface-inset px-3 py-2.5">
               <dt className="text-xs text-muted-foreground">Aplicação</dt>
               <dd className="mt-1 leading-relaxed">
                 {selectedSource ? (
@@ -1879,7 +1879,7 @@ export function SimulacaoCompraPage() {
                 return (
                 <li
                   key={r.id}
-                  className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border/50 bg-card/30 px-3 py-2.5"
+                  className="flex flex-wrap items-baseline justify-between gap-2 surface-inset px-3 py-2.5"
                 >
                   <span className="text-sm leading-normal">
                     <span className="mr-2 text-muted-foreground">{i + 1}.</span>
@@ -1888,7 +1888,7 @@ export function SimulacaoCompraPage() {
                       <span className="ml-2 text-xs text-income">melhor</span>
                     ) : null}
                     {!r.feasible ? (
-                      <span className="ml-2 text-xs text-amber-700 dark:text-amber-400">
+                      <span className="ml-2 text-xs text-expense">
                         {alt?.mode === "cash_reverse"
                           ? "alerta: saldo"
                           : "alerta: limite"}
@@ -1964,7 +1964,7 @@ export function SimulacaoCompraPage() {
                 </thead>
                 <tbody>
                   {timelineMonths.map((m) => (
-                    <tr key={m} className="border-t border-border/40">
+                    <tr key={m} className="surface-panel px-4">
                       <td className="sticky left-0 bg-background/95 px-3 py-2.5 tabular-nums leading-normal">
                         {m}
                       </td>
@@ -1997,7 +1997,7 @@ export function SimulacaoCompraPage() {
             title="Relatório calculado"
             hint="Matemática do app — base para o assistente local."
           >
-            <pre className="whitespace-pre-wrap rounded-lg border border-border/50 bg-card/40 p-4 text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap surface-inset p-4 text-sm leading-relaxed">
               {result.markdownReport}
             </pre>
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -2070,7 +2070,7 @@ function MetricCard({
   valueLabel: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/50 bg-card/30 px-3 py-2.5">
+    <div className="surface-inset px-3 py-2.5">
       <p className="text-xs leading-normal text-muted-foreground">{label}</p>
       <p className="mt-0.5 text-sm font-semibold leading-normal tabular-nums">
         {valueLabel}

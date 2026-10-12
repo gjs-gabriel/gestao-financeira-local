@@ -10,14 +10,16 @@ import {
 import { useVault } from "@/lib/vault-context";
 import {
   CAT_COLORS,
-  CHART_AMBER,
-  CHART_BLUE,
-  CHART_TEAL,
+  CHART_BRAND,
+  CHART_DEBT,
+  CHART_INCOME,
+  CHART_STROKE,
+  ChartGradient,
+  ChartGrid,
+  GlassChartTooltip,
   brlTick,
-  chartTooltipStyle,
-  monthAxisTick,
+  chartAxisTick,
   tooltipBrl,
-  valueAxisTick,
 } from "@/components/charts/money-chart";
 import {
   EmptyState,
@@ -27,10 +29,11 @@ import {
   Section,
   StatGroup,
 } from "@/components/ui-helpers";
+import { GlowCard } from "@/components/ui/glow-card";
 import {
+  Area,
+  AreaChart,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -60,10 +63,14 @@ export function PatrimonioPage() {
       />
 
       <Section className="border-t border-border/40 pt-8">
-        <p className="type-label">Patrimônio líquido</p>
-        <p className="type-display mt-2 text-4xl text-investment md:text-5xl">
-          {formatBrl(w.netWorth)}
-        </p>
+        <GlowCard className="max-w-xl">
+          <p className="type-label">Patrimônio líquido</p>
+          <Money
+            value={w.netWorth}
+            display
+            className="mt-2 text-4xl md:text-5xl"
+          />
+        </GlowCard>
         <StatGroup className="mt-8 lg:grid-cols-3">
           <Metric
             label="Ativos"
@@ -88,7 +95,7 @@ export function PatrimonioPage() {
       <Section
         title="Estou construindo patrimônio?"
         hint="Evolução registrada ao usar o cofre"
-        className="border-t border-border/40"
+        className="surface-panel px-4"
       >
         {series.length < 2 ? (
           <EmptyState
@@ -98,47 +105,56 @@ export function PatrimonioPage() {
         ) : (
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ left: 4, right: 4 }}>
+              <AreaChart data={series} margin={{ left: 4, right: 4 }}>
+                <defs>
+                  <ChartGradient id="pat-ativos" color={CHART_INCOME} />
+                  <ChartGradient id="pat-passivos" color={CHART_DEBT} />
+                  <ChartGradient id="pat-pl" color={CHART_BRAND} />
+                </defs>
+                <ChartGrid />
                 <XAxis
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  tick={monthAxisTick}
+                  tick={chartAxisTick}
                 />
                 <YAxis
                   tickFormatter={brlTick}
                   width={68}
                   tickLine={false}
                   axisLine={false}
-                  tick={valueAxisTick}
+                  tick={chartAxisTick}
                 />
-                <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                <Tooltip content={<GlassChartTooltip formatter={tooltipBrl} />} />
                 <Legend />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="ativos"
                   name="Ativos"
-                  stroke={CHART_TEAL}
-                  strokeWidth={2}
-                  dot={false}
+                  stroke={CHART_INCOME}
+                  fill="url(#pat-ativos)"
+                  strokeWidth={CHART_STROKE}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="passivos"
                   name="Passivos"
-                  stroke={CHART_AMBER}
-                  strokeWidth={2}
-                  dot={false}
+                  stroke={CHART_DEBT}
+                  fill="url(#pat-passivos)"
+                  strokeWidth={CHART_STROKE}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="pl"
                   name="Patrimônio líquido"
-                  stroke={CHART_BLUE}
-                  strokeWidth={2}
-                  dot={false}
+                  stroke={CHART_BRAND}
+                  fill="url(#pat-pl)"
+                  strokeWidth={CHART_STROKE}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -148,39 +164,53 @@ export function PatrimonioPage() {
         <Section
           title="Como as posições evoluíram?"
           hint="Aplicações com pelo menos dois registros no histórico importado"
-          className="border-t border-border/40"
+          className="surface-panel px-4"
         >
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={positionRows} margin={{ left: 4, right: 4 }}>
+              <AreaChart data={positionRows} margin={{ left: 4, right: 4 }}>
+                <defs>
+                  {positions.series.map((item, index) => (
+                    <ChartGradient
+                      key={item.investmentId}
+                      id={`pos-${item.investmentId}`}
+                      color={CAT_COLORS[index % CAT_COLORS.length]!}
+                    />
+                  ))}
+                </defs>
+                <ChartGrid />
                 <XAxis
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  tick={monthAxisTick}
+                  tick={chartAxisTick}
                 />
                 <YAxis
                   tickFormatter={brlTick}
                   width={68}
                   tickLine={false}
                   axisLine={false}
-                  tick={valueAxisTick}
+                  tick={chartAxisTick}
                 />
-                <Tooltip formatter={tooltipBrl} contentStyle={chartTooltipStyle} />
+                <Tooltip content={<GlassChartTooltip formatter={tooltipBrl} />} />
                 <Legend />
-                {positions.series.map((item, index) => (
-                  <Line
-                    key={item.investmentId}
-                    type="monotone"
-                    dataKey={item.investmentId}
-                    name={item.name}
-                    stroke={CAT_COLORS[index % CAT_COLORS.length]}
-                    strokeWidth={2}
-                    dot={false}
-                    connectNulls={false}
-                  />
-                ))}
-              </LineChart>
+                {positions.series.map((item, index) => {
+                  const color = CAT_COLORS[index % CAT_COLORS.length]!;
+                  return (
+                    <Area
+                      key={item.investmentId}
+                      type="monotone"
+                      dataKey={item.investmentId}
+                      name={item.name}
+                      stroke={color}
+                      fill={`url(#pos-${item.investmentId})`}
+                      strokeWidth={CHART_STROKE}
+                      activeDot={{ r: 3, strokeWidth: 0 }}
+                      connectNulls={false}
+                    />
+                  );
+                })}
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </Section>

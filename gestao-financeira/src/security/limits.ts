@@ -11,10 +11,20 @@ export const KDF_IV_BYTES = 12;
 export const KDF_MAX_CIPHERTEXT_BYTES = 32 * 1024 * 1024;
 
 /** PIN / sessão */
+/** Cofres novos (pessoal/admin). Demo Marina pode usar PIN legado mais curto. */
+export const PIN_MIN_LENGTH = 6;
+/** Unlock / cofres legados — ainda aceitam PIN curto já existente. */
+export const PIN_MIN_LENGTH_LEGACY = 4;
 export const PIN_MAX_ATTEMPTS = 5;
 export const PIN_BASE_BACKOFF_MS = 2_000;
 export const PIN_MAX_BACKOFF_MS = 60_000;
 export const PIN_LOCKOUT_MS = 5 * 60_000;
+
+export function assertNewVaultPin(pin: string): void {
+  if (pin.length < PIN_MIN_LENGTH) {
+    throw new Error(`O PIN deve ter pelo menos ${PIN_MIN_LENGTH} caracteres`);
+  }
+}
 /** @deprecated use PIN_BASE_BACKOFF_MS */
 export const PIN_LOCKOUT_BASE_MS = PIN_BASE_BACKOFF_MS;
 /** @deprecated use PIN_LOCKOUT_MS */

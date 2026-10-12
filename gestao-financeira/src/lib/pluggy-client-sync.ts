@@ -11,16 +11,100 @@ import {
   type PluggySyncResult,
   type VaultSnapshot,
 } from "@/domain";
+import {
+  getPluggyProxyToken,
+  setPluggyProxyToken,
+  takePluggyProxyToken,
+} from "@/security/vault-session";
 
-export async function fetchPluggyBundleFromProxy(
-  itemIds: string[],
-): Promise<PluggyFetchBundle> {
-  const res = await fetch("/api/pluggy/fetch", {
+async function mintPluggyProxyToken(itemIds: string[]): Promise<string> {
+  const res = await fetch("/api/pluggy/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ itemIds }),
     cache: "no-store",
   });
+  const body: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg =
+      body &&
+      typeof body === "object" &&
+      "message" in body &&
+      typeof (body as { message: unknown }).message === "string"
+        ? (body as { message: string }).message
+        : `Falha ao criar sessão Pluggy (${res.status})`;
+    throw new Error(msg);
+  }
+  const token =
+    body &&
+    typeof body === "object" &&
+    "token" in body &&
+    typeof (body as { token: unknown }).token === "string"
+      ? (body as { token: string }).token
+      : null;
+  if (!token) {
+    throw new Error("Resposta de sessão Pluggy sem token.");
+  }
+  setPluggyProxyToken(token);
+  return token;
+}
+
+/** Garante token de proxy com allowlist = itemIds do cofre. */
+export async function ensurePluggyProxySession(
+  itemIds: string[],
+): Promise<string | null> {
+  const unique = [...new Set(itemIds.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return null;
+  return mintPluggyProxyToken(unique);
+}
+
+/** Revoga token no servidor (best-effort) e limpa memória. */
+export async function revokePluggyProxySessionClient(
+  tokenOverride?: string | null,
+): Promise<void> {
+  const token =
+    tokenOverride !== undefined ? tokenOverride : takePluggyProxyToken();
+  if (!token) {
+    setPluggyProxyToken(null);
+    return;
+  }
+  try {
+    await fetch("/api/pluggy/session", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  } catch {
+    /* ignore — lock local não depende do servidor */
+  }
+  setPluggyProxyToken(null);
+}
+
+export async function fetchPluggyBundleFromProxy(
+  itemIds: string[],
+): Promise<PluggyFetchBundle> {
+  let token = getPluggyProxyToken();
+  if (!token) {
+    token = await mintPluggyProxyToken(itemIds);
+  }
+
+  const doFetch = (bearer: string) =>
+    fetch("/api/pluggy/fetch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${bearer}`,
+      },
+      body: JSON.stringify({ itemIds }),
+      cache: "no-store",
+    });
+
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    token = await mintPluggyProxyToken(itemIds);
+    res = await doFetch(token);
+  }
+
   const body: unknown = await res.json().catch(() => null);
   if (!res.ok) {
     const msg =
@@ -56,6 +140,7 @@ export async function syncPluggyIntoSnapshot(
     };
   }
 
+  await ensurePluggyProxySession(itemIds);
   const bundle = await fetchPluggyBundleFromProxy(itemIds);
   const next = mergePluggyFetchBundle(snapshot, bundle, itemIds);
   return {

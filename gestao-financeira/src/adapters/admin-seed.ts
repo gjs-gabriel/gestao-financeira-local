@@ -10,6 +10,7 @@ import {
   ADMIN_USERNAME,
   ADMIN_VAULT_ID,
 } from "@/domain/admin-profile";
+import { assertNewVaultPin } from "@/security/limits";
 import { encryptSnapshot } from "./crypto";
 import type { UserProfile } from "./profiles";
 import {
@@ -44,9 +45,7 @@ export type AdminSeedResult = {
 export async function createAdminProfile(
   pin: string,
 ): Promise<AdminSeedResult> {
-  if (pin.length < 4) {
-    throw new Error("O PIN do administrador deve ter pelo menos 4 dígitos");
-  }
+  assertNewVaultPin(pin);
   const existing = await getProfile(ADMIN_PROFILE_ID);
   if (existing) {
     return { created: false, profile: existing };

@@ -61,10 +61,13 @@ import {
   establishVaultSession,
   getPinThrottleStatus,
   getSessionPin,
+  assertNewVaultPin,
+  PIN_MIN_LENGTH_LEGACY,
   recordPinFailure,
   SESSION_IDLE_MS_DEFAULT,
   setSessionIdleHandler,
   setSessionIdleMs,
+  takePluggyProxyToken,
 } from "@/security";
 import { getRuntimeManager } from "@/ai/local/RuntimeManager";
 
@@ -166,14 +169,34 @@ const VaultContext = createContext<VaultContextValue | null>(null);
 function wipeUnlockedMemory(
   setSnapshot: (v: VaultSnapshot | null) => void,
 ) {
+  const pluggyToken = takePluggyProxyToken();
   setSnapshot(null);
   clearVaultSession();
+  if (pluggyToken) {
+    void import("@/lib/pluggy-client-sync")
+      .then(({ revokePluggyProxySessionClient }) =>
+        revokePluggyProxySessionClient(pluggyToken),
+      )
+      .catch(() => {
+        /* ignore */
+      });
+  }
   try {
     getRuntimeManager().getClient().setToken(null);
     getRuntimeManager().cancel();
   } catch {
     /* runtime opcional */
   }
+}
+
+function mintPluggySessionIfNeeded(snapshot: VaultSnapshot): void {
+  const ids = snapshot.openFinance?.itemIds ?? [];
+  if (ids.length === 0) return;
+  void import("@/lib/pluggy-client-sync")
+    .then(({ ensurePluggyProxySession }) => ensurePluggyProxySession(ids))
+    .catch(() => {
+      /* sync/força depois cobre */
+    });
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -321,6 +344,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         establishVaultSession(selectedProfile.vaultId, keyPin);
         setSnapshot(withWealth);
         setStatus("unlocked");
+        mintPluggySessionIfNeeded(withWealth);
         if (withWealth !== data) {
           await persistActive(selectedProfile, withWealth);
         }
@@ -386,9 +410,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       avatar?: ProfileAvatar;
     }) => {
       setError(null);
-      if (input.pin.length < 4) {
-        setError("O PIN deve ter pelo menos 4 dígitos");
-        throw new Error("PIN curto");
+      const isDemo = input.mode === "demo" || input.kind === "demo";
+      try {
+        if (!isDemo) {
+          assertNewVaultPin(canonicalizePin(input.pin));
+        } else if (canonicalizePin(input.pin).length < PIN_MIN_LENGTH_LEGACY) {
+          throw new Error(
+            `O PIN deve ter pelo menos ${PIN_MIN_LENGTH_LEGACY} caracteres`,
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "PIN inválido";
+        setError(msg);
+        throw e;
       }
       const nameCheck = validateDisplayName(input.name);
       if (!nameCheck.ok) {
@@ -652,9 +686,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throw new Error("Desbloqueie o cofre para alterar o PIN");
       }
       const nextPin = canonicalizePin(newPin);
-      if (nextPin.length < 4) {
-        setError("O novo PIN deve ter pelo menos 4 dígitos");
-        throw new Error("PIN curto");
+      const isDemo = selectedProfile.kind === "demo";
+      try {
+        if (!isDemo) {
+          assertNewVaultPin(nextPin);
+        } else if (nextPin.length < PIN_MIN_LENGTH_LEGACY) {
+          throw new Error(
+            `O novo PIN deve ter pelo menos ${PIN_MIN_LENGTH_LEGACY} caracteres`,
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "PIN inválido";
+        setError(msg);
+        throw e;
       }
       // Valida PIN atual re-descriptografando o envelope
       const stored = await loadVaultEnvelope(selectedProfile.vaultId);
@@ -663,6 +707,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       // Troca a sessão ANTES de gravar — persistActive só usa a sessão.
       establishVaultSession(selectedProfile.vaultId, nextPin);
       await persistActive(selectedProfile, snapshot);
+      mintPluggySessionIfNeeded(snapshot);
     },
     [selectedProfile, snapshot, persistActive],
   );

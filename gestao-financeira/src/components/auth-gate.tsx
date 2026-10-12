@@ -14,6 +14,7 @@ import {
   type UserProfile,
 } from "@/adapters";
 import { ADMIN_DISPLAY_NAME } from "@/domain/admin-profile";
+import { PIN_MIN_LENGTH, PIN_MIN_LENGTH_LEGACY } from "@/security/limits";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const {
@@ -161,7 +162,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               onChange={(e) => setPin(e.target.value)}
               className="text-lg tracking-widest"
               required
-              minLength={4}
+              minLength={PIN_MIN_LENGTH_LEGACY}
             />
           </div>
           {displayError && (
@@ -371,7 +372,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               placeholder="• • • •"
               className="text-center text-lg tracking-[0.4em]"
               required
-              minLength={4}
+              minLength={PIN_MIN_LENGTH_LEGACY}
               autoFocus
             />
           </div>
@@ -430,7 +431,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               required
-              minLength={4}
+              minLength={PIN_MIN_LENGTH}
             />
           </div>
           <div className="space-y-2">
@@ -443,7 +444,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
-              minLength={4}
+              minLength={PIN_MIN_LENGTH}
             />
           </div>
           {displayError && (
@@ -572,7 +573,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 setLocalError(null);
                 void selectProfile(p.id);
               }}
-              className="flex w-full items-start gap-3 rounded-xl border border-border/60 bg-card/50 px-4 py-3.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+              className="surface-panel flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:border-primary/30 hover:bg-white/70"
             >
               <ProfileAvatarIcon profile={p} />
               <span>
@@ -709,10 +710,10 @@ function NamePinFields({
           autoComplete="new-password"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          placeholder="Mínimo 4 dígitos"
+          placeholder={`Mínimo ${PIN_MIN_LENGTH} caracteres`}
           className="text-lg tracking-widest"
           required
-          minLength={4}
+          minLength={PIN_MIN_LENGTH}
         />
       </div>
       <div className="space-y-2">
@@ -726,7 +727,7 @@ function NamePinFields({
           onChange={(e) => setConfirm(e.target.value)}
           className="text-lg tracking-widest"
           required
-          minLength={4}
+          minLength={PIN_MIN_LENGTH}
         />
       </div>
     </>

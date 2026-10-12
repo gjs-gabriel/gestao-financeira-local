@@ -109,17 +109,17 @@ export function OrcamentosPage() {
             const pct = Math.min(100, Math.round(row.ratio * 100));
             const tone =
               row.status === "over"
-                ? "bg-rose-700"
+                ? "bg-debt"
                 : row.status === "near"
-                  ? "bg-amber-600"
-                  : "bg-[#0F766E]";
+                  ? "bg-expense"
+                  : "bg-income";
             const cat =
               snapshot.categories.find((c) => c.id === row.budget.categoryId)
                 ?.name ?? "Categoria";
             return (
               <li
                 key={row.budget.id}
-                className="rounded-xl border border-border/60 bg-card/40 p-4"
+                className="surface-panel p-4"
               >
                 <div className="mb-2 flex justify-between gap-3 text-sm">
                   <button

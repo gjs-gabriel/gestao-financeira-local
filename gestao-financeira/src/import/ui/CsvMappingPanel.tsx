@@ -79,7 +79,7 @@ export function CsvMappingPanel({
         Object.values(mapping).includes("credit")));
 
   return (
-    <div className="space-y-4 rounded-xl border border-border/50 bg-card/40 p-4">
+    <div className="space-y-4 surface-panel p-4">
       <div>
         <h3 className="font-heading text-lg font-medium">
           Mapear colunas do CSV
@@ -123,7 +123,7 @@ export function CsvMappingPanel({
       </div>
 
       {!ok ? (
-        <p className="text-sm text-amber-700 dark:text-amber-400">
+        <p className="text-sm text-expense">
           Informe ao menos Data, Descrição e Valor (ou Débito+Crédito).
         </p>
       ) : null}

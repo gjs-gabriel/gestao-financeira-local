@@ -112,13 +112,13 @@ export function MetasPage() {
           action={<Button onClick={openCreate}>Criar meta</Button>}
         />
       ) : (
-        <ul className="divide-y divide-border/50 border-t border-border/40">
+        <ul className="space-y-3">
           {snapshot.goals.map((goal) => {
             const progress = goalProgress(goal);
             const pct = Math.round(progress * 100);
             const insight = smartGoalInsight(goal);
             return (
-              <li key={goal.id} className="py-5">
+              <li key={goal.id} className="surface-panel p-5">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium">{goal.name}</p>
@@ -163,7 +163,7 @@ export function MetasPage() {
                     </Button>
                   </div>
                 </div>
-                <ProgressBar value={progress} tone="investment" />
+                <ProgressBar value={progress} tone="income" />
               </li>
             );
           })}

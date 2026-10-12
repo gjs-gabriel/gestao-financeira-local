@@ -4,16 +4,25 @@ import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  assertPluggyFetchAccess,
   clearAllPinThrottles,
   clearPinFailures,
   clearVaultSession,
   establishVaultSession,
   getPinThrottleStatus,
   getSessionPin,
+  getPluggyProxyToken,
+  mintPluggyProxySession,
   recordPinFailure,
+  revokePluggyProxySession,
+  sanitizeBankString,
+  scrubLogMeta,
+  setPluggyProxyToken,
   timingSafeEqualString,
   validateGfinEnvelope,
   PIN_MAX_ATTEMPTS,
+  PIN_MIN_LENGTH,
+  __clearPluggyProxySessionsForTests,
   __sessionForTests,
 } from "./index";
 import { encryptSnapshot, decryptEnvelope, parseEnvelope } from "@/adapters/crypto";
@@ -69,6 +78,94 @@ describe("Vault session secrets", () => {
     clearVaultSession();
     assert.equal(getSessionPin("v1"), null);
     assert.equal(__sessionForTests(), null);
+  });
+
+  it("guarda token Pluggy só em memória e limpa no lock", () => {
+    establishVaultSession("v1", "999999");
+    setPluggyProxyToken("tok_test_abc");
+    assert.equal(getPluggyProxyToken("v1"), "tok_test_abc");
+    clearVaultSession();
+    assert.equal(getPluggyProxyToken("v1"), null);
+  });
+});
+
+describe("Pluggy proxy gate", () => {
+  beforeEach(() => {
+    __clearPluggyProxySessionsForTests();
+  });
+
+  it("exige token", () => {
+    const r = assertPluggyFetchAccess(null, ["item-a"]);
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.equal(r.status, 401);
+  });
+
+  it("rejeita itemId fora da allowlist", () => {
+    const { token } = mintPluggyProxySession(["item-a", "item-b"]);
+    const r = assertPluggyFetchAccess(token, ["item-a", "item-evil"]);
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.equal(r.status, 403);
+  });
+
+  it("aceita subset da allowlist", () => {
+    const { token } = mintPluggyProxySession(["item-a", "item-b"]);
+    const r = assertPluggyFetchAccess(token, ["item-b"]);
+    assert.equal(r.ok, true);
+    if (r.ok) assert.deepEqual(r.itemIds, ["item-b"]);
+  });
+
+  it("env fallback não amplia além da allowlist", () => {
+    const { token } = mintPluggyProxySession(["item-a"]);
+    const r = assertPluggyFetchAccess(token, [], {
+      envFallbackIds: ["item-a", "item-other"],
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) assert.deepEqual(r.itemIds, ["item-a"]);
+  });
+
+  it("rejeita token expirado", () => {
+    const { token } = mintPluggyProxySession(["item-a"], 60_000, 1_000_000);
+    const r = assertPluggyFetchAccess(token, ["item-a"], {
+      now: 1_000_000 + 61_000,
+    });
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.equal(r.status, 401);
+  });
+
+  it("revoke invalida o token", () => {
+    const { token } = mintPluggyProxySession(["item-a"]);
+    revokePluggyProxySession(token);
+    const r = assertPluggyFetchAccess(token, ["item-a"]);
+    assert.equal(r.ok, false);
+  });
+});
+
+describe("safe-log / sanitizeBankString", () => {
+  it("redige chaves sensíveis", () => {
+    const scrubbed = scrubLogMeta({
+      pin: "123456",
+      clientSecret: "sec",
+      itemCount: 2,
+      snapshot: { a: 1 },
+    });
+    assert.equal(scrubbed?.pin, "[redacted]");
+    assert.equal(scrubbed?.clientSecret, "[redacted]");
+    assert.equal(scrubbed?.snapshot, "[redacted]");
+    assert.equal(scrubbed?.itemCount, 2);
+  });
+
+  it("remove markup de strings bancárias", () => {
+    const dirty = `<script>alert(1)</script>Loja<img onerror="x">`;
+    const clean = sanitizeBankString(dirty);
+    assert.equal(clean.includes("<"), false);
+    assert.equal(clean.includes(">"), false);
+    assert.equal(clean.includes('"'), false);
+    assert.match(clean, /script/);
+    assert.match(clean, /Loja/);
+  });
+
+  it("PIN_MIN_LENGTH é 6 para cofres novos", () => {
+    assert.equal(PIN_MIN_LENGTH, 6);
   });
 });
 
@@ -251,5 +348,24 @@ describe("CSP / framing headers config", () => {
     // unsafe-eval só no ramo de desenvolvimento (Turbopack)
     assert.match(src, /isDev/);
     assert.match(src, /unsafe-eval/);
+    assert.match(src, /TODO\(TM-03\/CSP\)/);
+  });
+});
+
+describe("Pluggy credentials stay server-side", () => {
+  it("rotas Pluggy usam process.env sem NEXT_PUBLIC_", () => {
+    const fetchSrc = readFileSync(
+      resolve("src/app/api/pluggy/fetch/route.ts"),
+      "utf8",
+    );
+    const sessionSrc = readFileSync(
+      resolve("src/app/api/pluggy/session/route.ts"),
+      "utf8",
+    );
+    assert.match(fetchSrc, /PLUGGY_CLIENT_ID/);
+    assert.match(fetchSrc, /PLUGGY_CLIENT_SECRET/);
+    assert.doesNotMatch(fetchSrc, /NEXT_PUBLIC_PLUGGY/);
+    assert.doesNotMatch(sessionSrc, /NEXT_PUBLIC_PLUGGY/);
+    assert.match(fetchSrc, /Authorization|parseBearerToken/);
   });
 });

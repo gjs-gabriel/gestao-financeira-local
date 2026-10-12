@@ -31,7 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState, PageHeader, parseMoneyInput } from "@/components/ui-helpers";
+import {
+  EmptyState,
+  PageHeader,
+  ProgressBar,
+  parseMoneyInput,
+} from "@/components/ui-helpers";
 import { ConfirmDeleteDialog, EntityRow } from "@/components/entity-row";
 import {
   InstitutionBadge,
@@ -172,7 +177,7 @@ export function CartoesPage() {
             return (
               <section
                 key={card.id}
-                className="rounded-xl border border-border/60 bg-card/40 p-4"
+                className="surface-panel p-4"
               >
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -235,14 +240,17 @@ export function CartoesPage() {
                   Limite usado {formatBrl(usage.used)} de {formatBrl(usage.limit)}{" "}
                   · disponível {formatBrl(usage.available)}
                 </p>
-                <div className="mb-2 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-[#B45309]"
-                    style={{
-                      width: `${Math.min(100, (usage.used / Math.max(usage.limit, 1)) * 100)}%`,
-                    }}
-                  />
-                </div>
+                <ProgressBar
+                  className="mb-2"
+                  value={usage.used / Math.max(usage.limit, 1)}
+                  tone={
+                    usage.used / Math.max(usage.limit, 1) >= 0.9
+                      ? "expense"
+                      : usage.used / Math.max(usage.limit, 1) >= 0.7
+                        ? "expense"
+                        : "primary"
+                  }
+                />
                 {invoices.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Sem fatura aberta.</p>
                 ) : (

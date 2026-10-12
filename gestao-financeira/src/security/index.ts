@@ -5,3 +5,5 @@ export * from "./vault-session";
 export * from "./gfin-validate";
 export * from "./gfin-guard";
 export * from "./timing-safe";
+export * from "./pluggy-proxy-gate";
+export * from "./safe-log";

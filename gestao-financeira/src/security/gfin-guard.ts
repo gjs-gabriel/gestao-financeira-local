@@ -80,3 +80,18 @@ export function sanitizeImportString(
     .trim();
   return s.slice(0, maxChars);
 }
+
+/**
+ * Strings bancárias (Open Finance / Pluggy) — remove controles e caracteres
+ * típicos de markup para defesa em profundidade além do escaping do React.
+ */
+export function sanitizeBankString(
+  value: unknown,
+  maxChars = 500,
+): string {
+  return String(value ?? "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/[<>&"'`]/g, "")
+    .trim()
+    .slice(0, maxChars);
+}

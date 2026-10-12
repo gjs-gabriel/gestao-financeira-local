@@ -5,7 +5,11 @@ import { useVault } from "@/lib/vault-context";
 import { PluggyIntegrationSection } from "@/components/pluggy-integration-section";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { updatePluggyItemIds } from "@/domain";
-import { syncPluggyIntoSnapshot } from "@/lib/pluggy-client-sync";
+import {
+  ensurePluggyProxySession,
+  revokePluggyProxySessionClient,
+  syncPluggyIntoSnapshot,
+} from "@/lib/pluggy-client-sync";
 
 function parseItemIdsText(text: string): string[] {
   return [
@@ -38,6 +42,11 @@ export function PluggyVaultPanel() {
     try {
       const ids = parseItemIdsText(itemIdsText);
       await updateSnapshot((prev) => updatePluggyItemIds(prev, ids));
+      if (ids.length === 0) {
+        await revokePluggyProxySessionClient();
+      } else {
+        await ensurePluggyProxySession(ids);
+      }
       setMsg(
         ids.length === 0
           ? "ItemIds Pluggy removidos do cofre."

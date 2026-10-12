@@ -14,22 +14,22 @@ export function AIStatusBadge({
     status.status === "error" || status.status === "unsupported";
   const label =
     status.status === "ready"
-      ? "IA local ativa (runtime)"
+      ? "Finn ativo (runtime local)"
       : status.status === "downloading"
         ? `Baixando modelo — ${Math.round(status.progress * 100)}%`
         : status.status === "loading"
           ? "Carregando modelo…"
           : status.status === "checking"
-            ? "Verificando assistente local…"
+            ? "Verificando Finn…"
             : status.status === "generating"
-              ? "Analisando suas finanças…"
+              ? "Finn analisando…"
               : status.status === "unsupported"
-                ? "Assistente local indisponível"
+                ? "Finn indisponível"
                 : status.status === "disabled"
-                  ? "IA local desativada"
+                  ? "Finn desativado"
                   : status.status === "error"
-                    ? "Erro no assistente local"
-                    : "Assistente local não conectado";
+                    ? "Erro no Finn"
+                    : "Finn não conectado";
 
   return (
     <div

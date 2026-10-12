@@ -138,7 +138,7 @@ export function AdminPage() {
         </Alert>
       )}
 
-      <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+      <section className="surface-panel p-5">
         <h2 className="font-heading text-lg font-medium">Usuários no dispositivo</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Metadados públicos (nome e login). Sem saldos, lançamentos ou

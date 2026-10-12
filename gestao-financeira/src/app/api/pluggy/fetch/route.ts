@@ -1,44 +1,27 @@
 import { NextResponse } from "next/server";
 import { createPluggyClient, PluggyHttpError } from "@/infra/pluggy";
+import {
+  assertLocalPluggyRequest,
+  parseBearerToken,
+} from "@/infra/pluggy/local-guard";
+import { assertPluggyFetchAccess } from "@/security/pluggy-proxy-gate";
+import { safeLog } from "@/security/safe-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const APP_ORIGIN_OK = new Set([
-  "http://127.0.0.1:43127",
-  "http://localhost:43127",
-]);
-
-function assertLocal(req: Request): boolean {
-  const host = req.headers.get("host") || "";
-  const origin = req.headers.get("origin") || "";
-  if (origin && !APP_ORIGIN_OK.has(origin)) return false;
-  return (
-    host.startsWith("127.0.0.1:") ||
-    host.startsWith("localhost:") ||
-    host === "127.0.0.1" ||
-    host === "localhost"
-  );
-}
-
-function parseItemIds(body: unknown, envFallback: string | undefined): string[] {
-  const fromEnv = (envFallback ?? "")
-    .split(/[,;\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (!body || typeof body !== "object") return fromEnv;
+function parseItemIdsFromBody(body: unknown): string[] {
+  if (!body || typeof body !== "object") return [];
   const raw = (body as { itemIds?: unknown }).itemIds;
-  if (!Array.isArray(raw)) return fromEnv;
-  const fromBody = raw
+  if (!Array.isArray(raw)) return [];
+  return raw
     .filter((id): id is string => typeof id === "string")
     .map((id) => id.trim())
     .filter(Boolean);
-  return fromBody.length > 0 ? fromBody : fromEnv;
 }
 
 export async function POST(req: Request) {
-  if (!assertLocal(req)) {
+  if (!assertLocalPluggyRequest(req)) {
     return NextResponse.json({ error: "localhost_only" }, { status: 403 });
   }
 
@@ -62,24 +45,36 @@ export async function POST(req: Request) {
     body = null;
   }
 
-  const itemIds = parseItemIds(body, process.env.PLUGGY_ITEM_IDS);
-  if (itemIds.length === 0) {
+  const token = parseBearerToken(req);
+  const access = assertPluggyFetchAccess(token, parseItemIdsFromBody(body), {
+    envFallbackIds: (process.env.PLUGGY_ITEM_IDS ?? "")
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  });
+
+  if (!access.ok) {
     return NextResponse.json(
-      {
-        error: "item_ids_missing",
-        message:
-          "Informe itemIds no body ou configure PLUGGY_ITEM_IDS no ambiente.",
-      },
-      { status: 400 },
+      { error: access.error, message: access.message },
+      { status: access.status },
     );
   }
 
   try {
     const client = createPluggyClient({ clientId, clientSecret });
-    const bundle = await client.fetchItemsBundle(itemIds);
+    const bundle = await client.fetchItemsBundle(access.itemIds);
+    safeLog("info", "pluggy.fetch.ok", {
+      itemCount: access.itemIds.length,
+      fetchedAt: bundle.fetchedAt,
+    });
     return NextResponse.json(bundle);
   } catch (err) {
     if (err instanceof PluggyHttpError) {
+      safeLog("warn", "pluggy.fetch.http_error", {
+        status: err.status,
+        code: err.code,
+        message: err.message,
+      });
       return NextResponse.json(
         {
           error: "pluggy_http_error",
@@ -90,6 +85,9 @@ export async function POST(req: Request) {
         { status: err.status >= 400 && err.status < 600 ? err.status : 502 },
       );
     }
+    safeLog("error", "pluggy.fetch.failed", {
+      message: err instanceof Error ? err.message : "Falha ao buscar Pluggy",
+    });
     return NextResponse.json(
       {
         error: "pluggy_fetch_failed",

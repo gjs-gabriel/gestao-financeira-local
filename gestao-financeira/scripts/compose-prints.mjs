@@ -1,12 +1,16 @@
-const sharp = require("sharp");
-const path = require("path");
+import sharp from "sharp";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+process.chdir(path.join(__dirname, ".."));
 
 const dir = path.join("docs", "prints");
 const files = [
-  ["print-painel-graficos.png", "Painel · Fluxo de caixa"],
+  ["print-painel-graficos.png", "Painel · Gráficos"],
   ["print-fluxo-anual.png", "Fluxo · Anual 2026"],
   ["print-patrimonio.png", "Patrimônio"],
-  ["print-painel.png", "Painel · Evolução do saldo"],
+  ["print-painel.png", "Painel · Patrimônio líquido"],
 ];
 
 const cellW = 900;

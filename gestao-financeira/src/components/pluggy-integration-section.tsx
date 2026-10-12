@@ -64,7 +64,7 @@ export function PluggyIntegrationSection({
   onSyncNow,
 }: PluggyIntegrationSectionProps) {
   return (
-    <section className="rounded-xl border border-border/60 bg-card/40 p-5">
+    <section className="surface-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="type-label mb-1">Open Finance</p>

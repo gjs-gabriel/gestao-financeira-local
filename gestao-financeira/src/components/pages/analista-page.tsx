@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { monthLabel } from "@/domain";
 import { useAI } from "@/ai/ui/AIProvider";
-import { AIAnalysisCard, AIInsightCard } from "@/ai/ui/AIInsight";
-import { AIChat } from "@/ai/ui/AIChat";
-import { AIModelSetup } from "@/ai/ui/AIModelSetup";
+import {
+  AIAnalysisCard,
+  AIInsightCard,
+  SimulationNotice,
+} from "@/ai/ui/AIInsight";
 import { AIRuntimeAnalysisView } from "@/ai/ui/AIRuntimeAnalysisView";
 import { AIStatusBadge } from "@/ai/ui/AIStatus";
-import { PageHeader, Section, Money } from "@/components/ui-helpers";
+import { PageHeader, Money } from "@/components/ui-helpers";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -83,9 +84,46 @@ export function AnalistaPage() {
     <div className="space-y-2">
       <PageHeader
         title="Analista financeiro"
-        description="Seu panorama em poucas palavras — cálculos no sistema, interpretação local."
+        description="Leitura do período com base nos seus dados — orientação, não previsão fechada."
         action={<AIStatusBadge status={modelStatus} />}
       />
+
+      <aside
+        role="note"
+        className="surface-panel mb-4 border-insight/30 px-4 py-3"
+      >
+        <p className="type-label mb-1 text-insight">Leitura orientativa</p>
+        <p className="text-sm font-medium leading-snug text-foreground">
+          Insights, orçamento e simulações usam seus números atuais como
+          premissa. São estimativas para apoiar decisão —{" "}
+          <span className="text-expense">não são resultado garantido</span> nem
+          aconselhamento financeiro.
+        </p>
+      </aside>
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="surface-panel px-4 py-3">
+          <p className="type-label">Renda</p>
+          <p className="type-metric mt-1 text-xl text-income">
+            <Money value={financialSnapshot.income.current} tone="income" />
+          </p>
+        </div>
+        <div className="surface-panel px-4 py-3">
+          <p className="type-label">Gastos</p>
+          <p className="type-metric mt-1 text-xl text-expense">
+            <Money value={financialSnapshot.expenses.current} tone="expense" />
+          </p>
+        </div>
+        <div className="surface-panel px-4 py-3">
+          <p className="type-label">Patrimônio</p>
+          <p className="type-metric mt-1 text-xl text-investment">
+            <Money
+              value={financialSnapshot.netWorth.current}
+              tone="investment"
+            />
+          </p>
+        </div>
+      </div>
 
       {modelStatus.error || modelStatus.status === "error" ? (
         <div
@@ -110,7 +148,7 @@ export function AnalistaPage() {
             value={String(month)}
             onValueChange={(v) => v && setPeriod(year, Number(v))}
           >
-            <SelectTrigger className="h-9 w-36">
+            <SelectTrigger className="h-8 w-36 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -128,7 +166,7 @@ export function AnalistaPage() {
             value={String(year)}
             onValueChange={(v) => v && setPeriod(Number(v), month)}
           >
-            <SelectTrigger className="h-9 w-28">
+            <SelectTrigger className="h-8 w-28 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -171,14 +209,14 @@ export function AnalistaPage() {
               {overviewText}
             </p>
             <p className="mt-3 text-xs text-muted-foreground">
-              Resumo calculado pelo sistema · use Narrar com IA local para
-              interpretação no runtime (127.0.0.1)
+              Resumo calculado a partir do cofre · “Narrar com IA” só interpreta —
+              não altera nem garante o futuro.
             </p>
           </>
         )}
       </AIAnalysisCard>
 
-      <AIAnalysisCard title="O que chamou atenção">
+      <AIAnalysisCard title="O que chamou atenção" eyebrow="Com base no período">
         {insights.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Ainda não há insights com evidência para este período.
@@ -192,7 +230,7 @@ export function AnalistaPage() {
         )}
       </AIAnalysisCard>
 
-      <AIAnalysisCard title="Fique de olho">
+      <AIAnalysisCard title="Fique de olho" eyebrow="Alertas do sistema">
         {alerts.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nenhum alerta no momento com os thresholds atuais.
@@ -206,7 +244,7 @@ export function AnalistaPage() {
         )}
       </AIAnalysisCard>
 
-      <AIAnalysisCard title="Padrões">
+      <AIAnalysisCard title="Padrões" eyebrow="Detecção local">
         <div className="space-y-4">
           {patterns.map((item) => (
             <AIInsightCard key={item.id} item={item} />
@@ -214,8 +252,12 @@ export function AnalistaPage() {
         </div>
       </AIAnalysisCard>
 
-      <AIAnalysisCard title="Seu orçamento">
-        <div className="mb-3 flex flex-wrap gap-2">
+      <AIAnalysisCard title="Seu orçamento" eyebrow="Sugestões · não são regras">
+        <SimulationNotice compact>
+          Hipóteses de alocação com base no objetivo escolhido. Ajuste conforme
+          sua realidade — o app não executa essas mudanças sozinho.
+        </SimulationNotice>
+        <div className="mb-3 mt-4 flex flex-wrap gap-2">
           {(
             [
               ["increase_contribution", "Aumentar aportes"],
@@ -251,7 +293,7 @@ export function AnalistaPage() {
         ) : null}
       </AIAnalysisCard>
 
-      <AIAnalysisCard title="Sua carteira">
+      <AIAnalysisCard title="Sua carteira" eyebrow="Retrato atual">
         {portfolioAnalysis ? (
           <>
             <p className="text-sm">{portfolioAnalysis.summary}</p>
@@ -295,72 +337,62 @@ export function AnalistaPage() {
         ) : null}
       </AIAnalysisCard>
 
-      <AIAnalysisCard title="Simule uma decisão">
-        <div className="space-y-4">
+      <AIAnalysisCard
+        title="Simule uma decisão"
+        eyebrow="Cenários hipotéticos"
+      >
+        <SimulationNotice>
+          Os números abaixo projetam “e se…” com premissas explícitas. Mudança de
+          renda, gastos ou mercado altera o resultado — trate como exercício, não
+          como destino.
+        </SimulationNotice>
+        <div className="mt-4 space-y-4">
           {scenarios.map((s) => (
-            <div key={s.id} className="border-t border-border/30 pt-3 first:border-0 first:pt-0">
-              <p className="text-sm font-medium">{s.title}</p>
-              <dl className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
-                {s.premises.map((p) => (
-                  <div key={p.label}>
-                    <dt className="text-xs text-muted-foreground">{p.label}</dt>
-                    <dd>{p.value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <ul className="mt-2 space-y-1 text-sm">
-                {s.results.map((r) => (
-                  <li key={r.label}>
-                    <span className="text-muted-foreground">{r.label}: </span>
-                    {r.value}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-muted-foreground">{s.disclaimer}</p>
-            </div>
+            <article key={s.id} className="surface-panel space-y-3 p-4 md:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h3 className="font-heading text-base font-bold tracking-tight">
+                  {s.title}
+                </h3>
+                <span className="rounded-md border border-expense/30 bg-expense/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-expense">
+                  Simulação
+                </span>
+              </div>
+              <SimulationNotice compact>{s.disclaimer}</SimulationNotice>
+              <div>
+                <p className="type-label mb-2">Premissas</p>
+                <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                  {s.premises.map((p) => (
+                    <div
+                      key={p.label}
+                      className="surface-inset px-3 py-2"
+                    >
+                      <dt className="text-[11px] text-muted-foreground">
+                        {p.label}
+                      </dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums">
+                        {p.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+              <div>
+                <p className="type-label mb-2">Resultado estimado</p>
+                <ul className="space-y-2">
+                  {s.results.map((r) => (
+                    <li
+                      key={r.label}
+                      className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 pb-2 text-sm last:border-0 last:pb-0"
+                    >
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className="font-semibold tabular-nums">{r.value}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </article>
           ))}
         </div>
-      </AIAnalysisCard>
-
-      <Section className="border-t border-border/40 pt-6">
-        <div className="mb-2 grid gap-2 sm:grid-cols-3">
-          <div>
-            <p className="type-label">Renda</p>
-            <p className="type-metric text-xl text-income">
-              <Money value={financialSnapshot.income.current} tone="income" />
-            </p>
-          </div>
-          <div>
-            <p className="type-label">Gastos</p>
-            <p className="type-metric text-xl text-expense">
-              <Money value={financialSnapshot.expenses.current} tone="expense" />
-            </p>
-          </div>
-          <div>
-            <p className="type-label">Patrimônio</p>
-            <p className="type-metric text-xl text-investment">
-              <Money
-                value={financialSnapshot.netWorth.current}
-                tone="investment"
-              />
-            </p>
-          </div>
-        </div>
-      </Section>
-
-      <AIAnalysisCard title="Pergunte">
-        <AIChat />
-      </AIAnalysisCard>
-
-      <AIAnalysisCard title="Assistente local">
-        <AIModelSetup />
-        <p className="mt-3 text-sm text-muted-foreground">
-          Detecção automática de recorrências continua em{" "}
-          <Link href="/inteligencia" className="text-primary underline-offset-2 hover:underline">
-            Inteligência
-          </Link>
-          .
-        </p>
       </AIAnalysisCard>
     </div>
   );

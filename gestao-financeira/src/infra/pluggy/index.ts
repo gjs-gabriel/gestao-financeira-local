@@ -5,6 +5,10 @@ export {
   type PluggyClientOptions,
 } from "./pluggy-client";
 export {
+  assertLocalPluggyRequest,
+  parseBearerToken,
+} from "./local-guard";
+export {
   PluggyHttpError,
   type PluggyAccount,
   type PluggyBill,

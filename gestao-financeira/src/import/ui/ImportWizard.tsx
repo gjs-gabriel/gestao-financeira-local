@@ -72,7 +72,7 @@ function DocumentIdentity({
     return null;
   }
   return (
-    <div className="space-y-3 rounded-xl border border-border/50 bg-card/40 p-4 text-sm">
+    <div className="space-y-3 surface-panel p-4 text-sm">
       <div>
         <p className="text-xs text-muted-foreground">
           {draft.documentType === "income_report"
@@ -690,7 +690,7 @@ export function ImportWizard() {
           ) : null}
 
           {ocrFile && !csvPending ? (
-            <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="surface-panel space-y-3 border-expense/35 p-4">
               <p className="text-sm">
                 PDF escaneado detectado. O OCR roda 100% no seu aparelho (Tesseract
                 + idioma português em <code className="text-xs">/ocr</code>).
@@ -707,7 +707,7 @@ export function ImportWizard() {
 
           {passwordFile ? (
             <form
-              className="space-y-3 rounded-xl border border-border/50 p-4"
+              className="surface-panel space-y-3 p-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 void processFile(passwordFile, pdfPassword);

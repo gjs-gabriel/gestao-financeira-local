@@ -52,12 +52,12 @@ function MatchRow({
           <p className="font-medium">{match.importedLabel}</p>
           <p className="text-xs text-muted-foreground">{match.reason}</p>
           {match.isMovementNotPosition ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">
+            <p className="text-xs text-expense">
               Movimentação — não usar como saldo patrimonial.
             </p>
           ) : null}
           {match.userDecision ? (
-            <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+            <p className="mt-1 text-xs text-income">
               Decisão: {match.userDecision}
               {match.existingLabel ? ` → ${match.existingLabel}` : ""}
             </p>
@@ -67,11 +67,11 @@ function MatchRow({
           className={cn(
             "inline-block shrink-0 rounded px-2 py-0.5 text-xs font-medium",
             match.action === "CONFLICT" || match.action === "POSSIBLE_DUPLICATE"
-              ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+              ? "bg-expense/15 text-expense"
               : match.action === "NEW"
-                ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+                ? "bg-income/15 text-income"
                 : match.action === "NEEDS_CONFIRMATION"
-                  ? "bg-sky-500/15 text-sky-800 dark:text-sky-300"
+                  ? "bg-investment/15 text-investment"
                   : "bg-muted text-muted-foreground",
           )}
         >
@@ -264,7 +264,7 @@ export function ConciliationPanel({
   ];
 
   return (
-    <div className="space-y-4 rounded-xl border border-border/50 bg-card/40 p-4">
+    <div className="space-y-4 surface-panel p-4">
       <div>
         <h3 className="font-heading text-lg font-medium">
           Conciliação da importação
@@ -285,7 +285,7 @@ export function ConciliationPanel({
           className={cn(
             "text-sm",
             check.ok === false
-              ? "text-amber-700 dark:text-amber-400"
+              ? "text-expense"
               : "text-muted-foreground",
           )}
         >
@@ -340,7 +340,7 @@ export function ConciliationPanel({
                     {formatBrl(inv.amount)}
                   </span>
                   {closed ? (
-                    <span className="ml-2 text-xs text-amber-700 dark:text-amber-400">
+                    <span className="ml-2 text-xs text-expense">
                       Será marcado como encerrado
                     </span>
                   ) : null}

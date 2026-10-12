@@ -87,7 +87,7 @@ export function TransferenciasPage() {
           description="Crie outra conta em Contas para transferir."
         />
       ) : (
-        <section className="mb-8 max-w-lg space-y-3 rounded-xl border border-border/60 bg-card/40 p-4">
+        <section className="mb-8 max-w-lg space-y-3 surface-panel p-4">
           <div className="space-y-1.5">
             <Label>De</Label>
             <Select
@@ -164,7 +164,7 @@ export function TransferenciasPage() {
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {ok && <p className="text-sm text-emerald-800">{ok}</p>}
+          {ok && <p className="text-sm text-income">{ok}</p>}
           <Button onClick={submit} disabled={busy}>
             Transferir
           </Button>

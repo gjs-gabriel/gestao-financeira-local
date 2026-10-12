@@ -55,7 +55,7 @@ export function ImportDropzone({
           handle(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          "flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 bg-card/30 px-6 py-12 text-center transition-colors",
+          "flex w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-white/40 px-6 py-12 text-center transition-colors backdrop-blur-sm",
           dragOver && "border-primary bg-primary/5",
           busy && "opacity-60",
         )}
@@ -129,7 +129,7 @@ export function ImportFormatCards({
           key={kind}
           type="button"
           onClick={() => onPick(kind)}
-          className="rounded-xl border border-border/50 bg-card/40 px-4 py-8 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="surface-panel px-4 py-8 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Icon className="mb-3 size-6 text-primary" aria-hidden />
           <p className="font-heading text-lg font-medium">{title}</p>

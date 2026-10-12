@@ -227,7 +227,7 @@ export function AplicacoesPage() {
             );
           })()}
 
-          <div className="mt-8 border-t border-border/40">
+          <div className="surface-panel mt-8 px-4">
             {snapshot.investments.map((item) => (
               <div key={item.id}>
                 <EntityRow

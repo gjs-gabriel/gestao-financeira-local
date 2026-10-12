@@ -125,7 +125,7 @@ export function RendasPage() {
           action={<Button onClick={openCreate}>Adicionar renda</Button>}
         />
       ) : (
-        <div className="border-t border-border/40">
+        <div className="surface-panel px-4">
           {snapshot.incomes.map((item) => (
             <EntityRow
               key={item.id}

@@ -8,9 +8,13 @@ const isDev = process.env.NODE_ENV !== "production";
  * - connect só self + runtime IA em 127.0.0.1
  * - sem object/base arbitrário
  * - WebLLM CDN NÃO liberado (inferência principal é runtime local)
+ * - Browser NÃO fala com api.pluggy.ai (proxy server-side em /api/pluggy/*)
  *
  * Em desenvolvimento, Turbopack/Next exigem 'unsafe-eval' para HMR.
  * Em produção NÃO liberamos 'unsafe-eval'.
+ *
+ * TODO(TM-03/CSP): migrar script-src para nonces e remover 'unsafe-inline'
+ * quando o pipeline Next permitir sem quebrar o standalone local.
  */
 const scriptSrc = isDev
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"

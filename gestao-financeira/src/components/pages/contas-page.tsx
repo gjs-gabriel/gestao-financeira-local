@@ -146,7 +146,7 @@ export function ContasPage() {
           action={<Button onClick={openCreate}>Adicionar conta</Button>}
         />
       ) : (
-        <div className="border-t border-border/40">
+        <div className="surface-panel px-4">
           {accounts.map((item) => {
             const balance = accountBalance(item, txs);
             return (

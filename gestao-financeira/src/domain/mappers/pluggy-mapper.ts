@@ -15,6 +15,7 @@ import type {
   OneTimeExpense,
   OneTimeIncome,
 } from "../types";
+import { sanitizeBankString } from "@/security/gfin-guard";
 import { mapPluggyCategoryToId } from "./pluggy-category-map";
 
 export interface MappedCardPurchase {
@@ -64,8 +65,13 @@ function absMoney(n: number): number {
   return Math.round(Math.abs(n) * 100) / 100;
 }
 
+function bankLabel(raw: string | null | undefined, fallback: string): string {
+  const clean = sanitizeBankString(raw ?? "", 500);
+  return clean || fallback;
+}
+
 function normalizeDesc(raw: string): string {
-  return raw
+  return sanitizeBankString(raw, 500)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
@@ -128,7 +134,7 @@ function mapInvestmentClass(type?: string | null, subtype?: string | null): Inve
 function mapBankAccount(acc: PluggyAccount, now: string): Account {
   return {
     id: `pluggy_acc_${acc.id}`,
-    name: acc.marketingName?.trim() || acc.name,
+    name: bankLabel(acc.marketingName || acc.name, "Conta Pluggy"),
     type: mapAccountType(String(acc.subtype)),
     openingBalance: absMoney(acc.balance),
     openingDate: now.slice(0, 10),
@@ -145,7 +151,7 @@ function mapCreditCard(acc: PluggyAccount, now: string): CreditCard {
   const close = dayFromIso(acc.creditData?.balanceCloseDate, 1);
   return {
     id: `pluggy_card_${acc.id}`,
-    name: acc.marketingName?.trim() || acc.name,
+    name: bankLabel(acc.marketingName || acc.name, "Cartão Pluggy"),
     limit: absMoney(acc.creditData?.creditLimit ?? 0),
     closingDay: close,
     dueDay: due,
@@ -198,7 +204,7 @@ function mapInvestment(inv: PluggyInvestment, now: string): Investment {
   const amount = absMoney(inv.balance ?? inv.amount ?? inv.value ?? 0);
   return {
     id: `pluggy_inv_${inv.id}`,
-    name: inv.name,
+    name: bankLabel(inv.name, "Investimento Pluggy"),
     amount,
     classification: mapInvestmentClass(inv.type, inv.subtype),
     externalId: inv.id,
@@ -215,7 +221,10 @@ function mapLoan(loan: PluggyLoan, now: string): Debt {
   const balance = absMoney(loan.outstandingBalance ?? loan.balance ?? 0);
   return {
     id: `pluggy_loan_${loan.id}`,
-    name: loan.productName?.trim() || loan.contractNumber || `Empréstimo ${loan.id.slice(0, 8)}`,
+    name: bankLabel(
+      loan.productName || loan.contractNumber,
+      `Empréstimo ${loan.id.slice(0, 8)}`,
+    ),
     balance,
     installmentAmount:
       loan.installmentAmount != null ? absMoney(loan.installmentAmount) : undefined,
@@ -279,7 +288,7 @@ function groupInstallments(txs: PluggyTransaction[]): {
     }
     groups.push({
       key: `pluggy_plan_${normalizeDesc(first.description).slice(0, 40)}_${total}_${absMoney(first.amount)}`,
-      name: first.description.trim() || "Compra parcelada",
+      name: bankLabel(first.description, "Compra parcelada"),
       installmentAmount: absMoney(first.amount),
       totalInstallments: total,
       startDate,
@@ -407,7 +416,7 @@ export function mapPluggyBundle(
     const amount = absMoney(tx.amount);
     if (amount <= 0) continue;
     const categoryId = mapPluggyCategoryToId(tx.category ?? undefined);
-    const name = tx.description?.trim() || "Lançamento Pluggy";
+    const name = bankLabel(tx.description, "Lançamento Pluggy");
     const debit = isDebit(tx);
 
     if (debit) {

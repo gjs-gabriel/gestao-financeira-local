@@ -9,11 +9,14 @@ export function Money({
   value,
   className,
   tone,
+  display,
 }: {
   value: number;
   className?: string;
   /** Override automático positivo/negativo */
   tone?: "income" | "expense" | "investment" | "debt" | "neutral";
+  /** Hero: Fraunces + gradiente no número; R$ menor e muted */
+  display?: boolean;
 }) {
   const auto =
     tone ??
@@ -28,9 +31,25 @@ export function Money({
           : auto === "debt"
             ? "text-debt"
             : "text-foreground";
+  const negative = value < 0;
+  const amount = formatBrl(Math.abs(value)).replace(/^R\$\s*/, "");
   return (
-    <span className={cn("tabular-nums", toneClass, className)}>
-      {formatBrl(value)}
+    <span
+      className={cn(
+        "inline-flex items-baseline gap-1 tabular-nums",
+        !display && toneClass,
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "text-[0.55em] font-light text-muted-foreground/50",
+          display && "font-heading",
+        )}
+      >
+        {negative ? "−" : ""}R$
+      </span>
+      <span className={cn(display && "type-display")}>{amount}</span>
     </span>
   );
 }
@@ -45,8 +64,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-start gap-3 border-t border-border/50 py-10">
-      <h3 className="text-base font-medium tracking-tight">{title}</h3>
+    <div className="flex flex-col items-start gap-3 py-8">
+      <h3 className="font-heading text-lg font-semibold tracking-tight">
+        {title}
+      </h3>
       <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
@@ -70,11 +91,11 @@ export function PageHeader({
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? <p className="type-label mb-2">{eyebrow}</p> : null}
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+        <h1 className="font-heading text-[32px] font-black tracking-[-0.02em] text-foreground md:text-4xl">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+          <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -104,7 +125,9 @@ export function Section({
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             {title ? (
-              <h2 className="text-base font-medium tracking-tight">{title}</h2>
+              <h2 className="font-heading border-b border-border pb-2 text-xl font-extrabold tracking-tight md:text-[22px]">
+                {title}
+              </h2>
             ) : null}
             {hint ? (
               <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
@@ -222,7 +245,7 @@ export function ProgressBar({
   /** 0–1 */
   value: number;
   className?: string;
-  tone?: "primary" | "investment" | "expense" | "income";
+  tone?: "primary" | "investment" | "expense" | "income" | "insight";
 }) {
   const pct = Math.round(Math.min(1, Math.max(0, value)) * 1000) / 10;
   const bar =
@@ -232,17 +255,22 @@ export function ProgressBar({
         ? "bg-expense"
         : tone === "income"
           ? "bg-income"
-          : "bg-primary";
+          : tone === "insight"
+            ? "bg-insight"
+            : "bg-foreground";
   return (
     <div
-      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}
+      className={cn(
+        "h-2 w-full overflow-hidden rounded bg-foreground/[0.04]",
+        className,
+      )}
       role="progressbar"
       aria-valuenow={pct}
       aria-valuemin={0}
       aria-valuemax={100}
     >
       <div
-        className={cn("h-full rounded-full transition-[width] duration-300", bar)}
+        className={cn("h-full rounded transition-[width] duration-300", bar)}
         style={{ width: `${pct}%` }}
       />
     </div>
